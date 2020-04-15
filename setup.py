@@ -38,7 +38,7 @@ nosferatu_description = (
 
 setup(
     name='nosferatu',
-    version='3.0.1',
+    version='0.0.1',
     include_package_data=True,
     packages=find_packages(exclude=['docs']),  # Required
     package_data={'testdata': ['testdata/*.gin']},
