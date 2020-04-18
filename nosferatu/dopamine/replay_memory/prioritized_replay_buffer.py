@@ -24,9 +24,9 @@ from __future__ import print_function
 
 
 
-from dopamine.replay_memory import circular_replay_buffer
-from dopamine.replay_memory import sum_tree
-from dopamine.replay_memory.circular_replay_buffer import ReplayElement
+from nosferatu.dopamine.replay_memory import circular_replay_buffer
+from nosferatu.dopamine.replay_memory import sum_tree
+from nosferatu.dopamine.replay_memory.circular_replay_buffer import ReplayElement
 import numpy as np
 import tensorflow.compat.v1 as tf
 

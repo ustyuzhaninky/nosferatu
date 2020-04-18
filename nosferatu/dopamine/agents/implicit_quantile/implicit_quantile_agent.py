@@ -24,8 +24,8 @@ from __future__ import print_function
 
 
 
-from dopamine.agents.rainbow import rainbow_agent
-from dopamine.discrete_domains import atari_lib
+from nosferatu.dopamine.agents.rainbow import rainbow_agent
+from nosferatu.dopamine.discrete_domains import atari_lib
 import tensorflow.compat.v1 as tf
 
 import gin.tf

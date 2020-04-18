@@ -24,8 +24,8 @@ import random
 
 
 
-from dopamine.discrete_domains import atari_lib
-from dopamine.replay_memory import circular_replay_buffer
+from nosferatu.dopamine.discrete_domains import atari_lib
+from nosferatu.dopamine.replay_memory import circular_replay_buffer
 import numpy as np
 import tensorflow.compat.v1 as tf
 

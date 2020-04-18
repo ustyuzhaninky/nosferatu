@@ -1,30 +1,31 @@
 # Hyperparameters follow Hessel et al. (2018).
-import dopamine.agents.rainbow.rainbow_agent
-import dopamine.discrete_domains.unity_lib
-import dopamine.discrete_domains.run_experiment
-import dopamine.replay_memory.prioritized_replay_buffer
+import nosferatu.dopamine.agents.rainbow.rainbow_agent
+import nosferatu.dopamine.discrete_domains.unity_lib
+import nosferatu.run_experiment
+import nosferatu.dopamine.replay_memory.prioritized_replay_buffer
+import nosferatu.nosferatu_agent
 import gin.tf.external_configurables
 
-RainbowAgent.num_atoms = 51
-RainbowAgent.vmax = 10.
-RainbowAgent.gamma = 0.99
-RainbowAgent.update_horizon = 3
-RainbowAgent.min_replay_history = 20000  # agent steps
-RainbowAgent.update_period = 4
-RainbowAgent.target_update_period = 8000  # agent steps
-RainbowAgent.epsilon_train = 0.01
-RainbowAgent.epsilon_eval = 0.001
-RainbowAgent.epsilon_decay_period = 250000  # agent steps
-RainbowAgent.replay_scheme = 'prioritized'
-RainbowAgent.tf_device = '/gpu:0'  # use '/cpu:*' for non-GPU version
-RainbowAgent.optimizer = @tf.train.AdamOptimizer()
+NosferatuAgent.num_atoms = 51
+NosferatuAgent.vmax = 10.
+NosferatuAgent.gamma = 0.99
+NosferatuAgent.update_horizon = 3
+NosferatuAgent.min_replay_history = 20000  # agent steps
+NosferatuAgent.update_period = 4
+NosferatuAgent.target_update_period = 8000  # agent steps
+NosferatuAgent.epsilon_train = 0.01
+NosferatuAgent.epsilon_eval = 0.001
+NosferatuAgent.epsilon_decay_period = 250000  # agent steps
+NosferatuAgent.replay_scheme = 'prioritized'
+NosferatuAgent.tf_device = '/gpu:0'  # use '/cpu:*' for non-GPU version
+NosferatuAgent.optimizer = @tf.train.AdamOptimizer()
 
 # Note these parameters are different from C51's.
 tf.train.AdamOptimizer.learning_rate = 0.0000625
 tf.train.AdamOptimizer.epsilon = 0.00015
 
 create_otc_environment.environment_path = "D:/Projects/python/PhDSub/TowerProject/ObstacleTower/obstacletower.exe"
-create_agent.agent_name = 'rainbow'
+create_agent.agent_name = 'nosferatu'
 Runner.create_environment_fn = @unity_lib.create_otc_environment
 Runner.num_iterations = 200
 Runner.training_steps = 250000  # agent steps
