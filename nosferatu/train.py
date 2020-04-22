@@ -17,6 +17,8 @@ r"""The entry point for running a Dopamine agent.
 Example:
     python -um nosferatu.train --base_dir=..\tmp\nosferatu --gin_files=configs\nosferatu_otc.gin
 
+    python -um nosferatu.train --base_dir=..\tmp\nosferatu --gin_files=D:\Projects\python\PhDSub\TowerProject\nosferatu\nosferatu\configs\nosferatu_otc.gin
+
 """
 
 from __future__ import absolute_import

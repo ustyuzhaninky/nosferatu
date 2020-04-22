@@ -31,6 +31,7 @@ from tensorflow.compat.v1.keras import backend as K
 import cv2
 from tensorflow.keras import layers as layers
 from nosferatu.capsules import cap_layers
+from nosferatu.sequence import seq_layers
 from nosferatu.dopamine.discrete_domains.atari_lib import *
 
 class RainbowCapsuleHunter(tf.keras.Model):
@@ -77,10 +78,11 @@ class RainbowCapsuleHunter(tf.keras.Model):
 
     # self.flatten = tf.keras.layers.Flatten()
     # self.reshape2 = tf.keras.layers.Reshape((128, 100), name='Reshape')
-    # self.lstm1 = tf.keras.layers.LSTM(128, dropout = 0.2, recurrent_dropout = 0.2, return_sequences = True,
-    #                                   kernel_initializer=self.kernel_initializer)
-    # self.lstm2 = tf.keras.layers.LSTM(128, dropout = 0.2, recurrent_dropout = 0.2, return_sequences = False,
-    #                                   kernel_initializer=self.kernel_initializer)
+    self.buffer = seq_layers.Buffer(128)
+    self.lstm1 = tf.keras.layers.LSTM(128, dropout = 0.2, recurrent_dropout = 0.2, return_sequences = True,
+                                      kernel_initializer=self.kernel_initializer)
+    self.lstm2 = tf.keras.layers.LSTM(128, dropout = 0.2, recurrent_dropout = 0.2, return_sequences = False,
+                                      kernel_initializer=self.kernel_initializer)
     
     # self.conv3 = tf.keras.layers.Conv2D(
     #     64, [3, 3], strides=1, padding='same', activation=activation_fn,
@@ -105,8 +107,11 @@ class RainbowCapsuleHunter(tf.keras.Model):
     Returns:
       collections.namedtuple, output ops (graph mode) or output tensors (eager).
     """
+
+    # print(state.shape)
     x = tf.cast(state, tf.float32)
     x = tf.div(x, 255.)
+    
     # x = self.conv1(x)
     # x = self.conv2(x)
     # x = self.avg1(x)
@@ -118,8 +123,10 @@ class RainbowCapsuleHunter(tf.keras.Model):
 
     # x = self.flatten(x)
     # x = self.reshape2(x)
-    # x = self.lstm1(x)
-    # x = self.lstm2(x)
+    # x = self.permute(x)
+    x = self.buffer(x)
+    x = self.lstm1(x)
+    x = self.lstm2(x)
     x = self.dense1(x)
     x = self.dense2(x)
 
