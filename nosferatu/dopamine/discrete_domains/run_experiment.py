@@ -22,13 +22,13 @@ import os
 import sys
 import time
 
-from dopamine.agents.dqn import dqn_agent
-from dopamine.agents.implicit_quantile import implicit_quantile_agent
-from dopamine.agents.rainbow import rainbow_agent
-from dopamine.discrete_domains import atari_lib
-from dopamine.discrete_domains import checkpointer
-from dopamine.discrete_domains import iteration_statistics
-from dopamine.discrete_domains import logger
+from nosferatu.dopamine.agents.dqn import dqn_agent
+from nosferatu.dopamine.agents.implicit_quantile import implicit_quantile_agent
+from nosferatu.dopamine.agents.rainbow import rainbow_agent
+from nosferatu.dopamine.discrete_domains import atari_lib
+from nosferatu.dopamine.discrete_domains import checkpointer
+from nosferatu.dopamine.discrete_domains import iteration_statistics
+from nosferatu.dopamine.discrete_domains import logger
 
 import numpy as np
 import tensorflow.compat.v1 as tf
