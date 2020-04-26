@@ -52,7 +52,7 @@ def create_otc_environment(environment_path=None):
     An Obstacle Tower environment with some standard preprocessing.
   """
   assert environment_path is not None
-  env = ObstacleTowerEnv(environment_path, 0, retro = True, realtime_mode=True)
+  env = ObstacleTowerEnv(environment_path, 0, retro = True, realtime_mode=False)
   env = OTCPreprocessing(env)
   return env
 
@@ -270,5 +270,5 @@ class OTCPreprocessing(object):
     observation, reward, game_over, info = self.environment.step(action)
     self.game_over = game_over
     if(len(observation.shape)> 2):
-      observation = cv2.cvtColor(observation, cv2.COLOR_RGB2GRAY)
+      observation = cv2.cvtColor(observation, cv2.COLOR_RGB2GRAY)#cv2.COLOR_RGB2RGBA)
     return observation, reward, game_over, info
