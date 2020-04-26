@@ -28,9 +28,9 @@ create_otc_environment.environment_path = "D:/Projects/python/PhDSub/TowerProjec
 create_agent.agent_name = 'nosferatu'
 Runner.create_environment_fn = @unity_lib.create_otc_environment
 Runner.num_iterations = 200
-Runner.training_steps = 250000  # agent steps
-Runner.evaluation_steps = 125000  # agent steps
+Runner.training_steps = 25000  # agent steps
+Runner.evaluation_steps = 12500  # agent steps
 Runner.max_steps_per_episode = 27000  # agent steps
 
-WrappedPrioritizedReplayBuffer.replay_capacity = 1000000
+WrappedPrioritizedReplayBuffer.replay_capacity = 10000
 WrappedPrioritizedReplayBuffer.batch_size = 32

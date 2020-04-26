@@ -1,8 +1,8 @@
 # Hyperparameters follow Hessel et al. (2018).
-import dopamine.agents.rainbow.rainbow_agent
-import dopamine.discrete_domains.unity_lib
-import dopamine.discrete_domains.run_experiment
-import dopamine.replay_memory.prioritized_replay_buffer
+import nosferatu.dopamine.agents.rainbow.rainbow_agent
+import nosferatu.dopamine.discrete_domains.unity_lib
+import nosferatu.dopamine.discrete_domains.run_experiment
+import nosferatu.dopamine.replay_memory.prioritized_replay_buffer
 import gin.tf.external_configurables
 
 RainbowAgent.num_atoms = 51

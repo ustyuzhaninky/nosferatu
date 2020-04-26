@@ -28,6 +28,7 @@ from nosferatu.dopamine.discrete_domains import atari_lib
 from nosferatu.dopamine.discrete_domains import checkpointer
 from nosferatu.dopamine.discrete_domains import iteration_statistics
 from nosferatu.dopamine.discrete_domains import logger
+from nosferatu.dopamine.discrete_domains import unity_lib
 
 import numpy as np
 import tensorflow.compat.v1 as tf
@@ -78,8 +79,8 @@ def create_agent(sess, environment, agent_name=None, summary_writer=None,
   if agent_name == 'nosferatu':
     return nosferatu_agent.NosferatuAgent(
         sess, num_actions=environment.action_space.n,
-        num_capsule=100,
-        dim_capsule=environment.action_space.n,
+        num_capsule=8,
+        dim_capsule=3,
         summary_writer=summary_writer)
 #   elif agent_name == 'implicit_quantile':
 #     return implicit_quantile_agent.ImplicitQuantileAgent(
@@ -129,7 +130,7 @@ class Runner(object):
   base_dir = '/tmp/simple_example'
   def create_agent(sess, environment):
     return dqn_agent.DQNAgent(sess, num_actions=environment.action_space.n)
-  runner = Runner(base_dir, create_agent, atari_lib.create_atari_environment)
+  runner = Runner(base_dir, create_agent, atari_lib.create_otc_environment)
   runner.run()
   ```
   """
@@ -137,14 +138,14 @@ class Runner(object):
   def __init__(self,
                base_dir,
                create_agent_fn,
-               create_environment_fn=atari_lib.create_atari_environment,
+               create_environment_fn=unity_lib.create_otc_environment,
                checkpoint_file_prefix='ckpt',
                logging_file_prefix='log',
                log_every_n=1,
                num_iterations=200,
-               training_steps=250000,
-               evaluation_steps=125000,
-               max_steps_per_episode=27000):
+               training_steps=2500,
+               evaluation_steps=1250,
+               max_steps_per_episode=2700):
     """Initialize the Runner object in charge of running a full experiment.
 
     Args:

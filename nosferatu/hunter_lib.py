@@ -73,16 +73,18 @@ class RainbowCapsuleHunter(tf.keras.Model):
         128, [3, 3], strides=1, padding='same', activation=activation_fn,
         kernel_initializer=self.kernel_initializer, name='Conv')
     self.reshape1 = tf.keras.layers.Reshape((-1, 128), name='Reshape')
-    self.primary_caps = cap_layers.Capsule(num_capsule, dim_capsule, routings, True)
-    self.digit_caps =  tf.keras.layers.Lambda(lambda x: K.sqrt(K.sum(K.square(x), 2)), output_shape=(100,))
+    self.primary_caps = cap_layers.Capsule(8, 3, 3, True)
+    self.digit_caps =  tf.keras.layers.Lambda(lambda x: K.sqrt(K.sum(K.square(x), 2)), output_shape=(10,))
 
     # self.flatten = tf.keras.layers.Flatten()
     # self.reshape2 = tf.keras.layers.Reshape((128, 100), name='Reshape')
-    self.buffer = seq_layers.Buffer(128)
-    self.lstm1 = tf.keras.layers.LSTM(128, dropout = 0.2, recurrent_dropout = 0.2, return_sequences = True,
-                                      kernel_initializer=self.kernel_initializer)
-    self.lstm2 = tf.keras.layers.LSTM(128, dropout = 0.2, recurrent_dropout = 0.2, return_sequences = False,
-                                      kernel_initializer=self.kernel_initializer)
+    # self.buffer = seq_layers.Buffer(128)
+    # self.lstm1 = tf.keras.layers.LSTM(128, dropout = 0.2, recurrent_dropout = 0.2, return_sequences = True,
+    #                                   kernel_initializer=self.kernel_initializer)
+    # self.lstm2 = tf.keras.layers.LSTM(128, dropout = 0.2, recurrent_dropout = 0.2, return_sequences = True,
+    #                                   kernel_initializer=self.kernel_initializer)
+    # self.lstm3 = tf.keras.layers.LSTM(128, dropout = 0.2, recurrent_dropout = 0.2, return_sequences = False,
+    #                                   kernel_initializer=self.kernel_initializer)
     
     # self.conv3 = tf.keras.layers.Conv2D(
     #     64, [3, 3], strides=1, padding='same', activation=activation_fn,
@@ -124,9 +126,10 @@ class RainbowCapsuleHunter(tf.keras.Model):
     # x = self.flatten(x)
     # x = self.reshape2(x)
     # x = self.permute(x)
-    x = self.buffer(x)
-    x = self.lstm1(x)
-    x = self.lstm2(x)
+    # x = self.buffer(x)
+    # x = self.lstm1(x)
+    # x = self.lstm2(x)
+    # x = self.lstm3(x)
     x = self.dense1(x)
     x = self.dense2(x)
 
