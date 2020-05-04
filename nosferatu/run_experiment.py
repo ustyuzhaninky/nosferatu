@@ -32,6 +32,7 @@ from nosferatu.dopamine.discrete_domains import unity_lib
 
 import numpy as np
 import tensorflow.compat.v1 as tf
+from tensorflow import summary
 
 import gin.tf
 
@@ -181,7 +182,7 @@ class Runner(object):
     self._max_steps_per_episode = max_steps_per_episode
     self._base_dir = base_dir
     self._create_directories()
-    self._summary_writer = tf.summary.FileWriter(self._base_dir)
+    self._summary_writer = summary.create_file_writer(self._base_dir)
 
     self._environment = create_environment_fn()
     config = tf.ConfigProto(allow_soft_placement=True)
@@ -192,7 +193,7 @@ class Runner(object):
     self._sess = tf.Session('', config=config)
     self._agent = create_agent_fn(self._sess, self._environment,
                                   summary_writer=self._summary_writer)
-    self._summary_writer.add_graph(graph=tf.get_default_graph())
+    # self._summary_writer.add_graph(graph=tf.get_default_graph())
     self._sess.run(tf.global_variables_initializer())
 
     self._initialize_checkpointer_and_maybe_resume(checkpoint_file_prefix)
@@ -445,6 +446,7 @@ class Runner(object):
                          simple_value=average_reward_eval)
     ])
     self._summary_writer.add_summary(summary, iteration)
+    self._summary_writer.scalar('Statistics', summary, iteration)
 
   def _log_experiment(self, iteration, statistics):
     """Records the results of the current iteration.
@@ -539,5 +541,6 @@ class TrainRunner(Runner):
         tf.Summary.Value(
             tag='Train/AverageReturns', simple_value=average_reward),
     ])
-    self._summary_writer.add_summary(summary, iteration)
+    # self._summary_writer.add_summary(summary, iteration)
+    self._summary_writer.scalar('Statistics', summary, iteration)
 

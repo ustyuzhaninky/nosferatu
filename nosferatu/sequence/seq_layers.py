@@ -183,7 +183,6 @@ class Buffer(Layer):
             name='buffer',
             shape=(self.n_steps,) + inputs.shape[1:], 
             initializer='zeros', trainable=False)
-          # self.cell.buffer = tf.Variable(tf.zeros((self.n_steps,) + inputs.shape[1:]), name='buffer')
       buffer = self.cell.buffer
 
       # We will attempt to build a TF graph if & only if all inputs are symbolic.
@@ -354,13 +353,6 @@ class Buffer(Layer):
         # The input should be dense, padded with zeros. If a ragged input is fed
         # into the layer, it is padded and the row lengths are used for masking.
         inputs, row_lengths = K.convert_inputs_if_ragged(inputs)
-        # if self.cell.buffer is None:
-        #     self.cell.buffer = self.cell.add_weight(
-        #       name='buffer',
-        #       shape=(self.n_steps,) + inputs.shape[1:], 
-        #       initializer='zeros', trainable=False)
-        #     # self.cell.buffer = tf.Variable(tf.zeros((self.n_steps,) + inputs.shape[1:]), name='buffer')
-        # buffer = self.cell.buffer
 
         def step(inputs, buffer):
             output, new_buffer = self.cell.call(
