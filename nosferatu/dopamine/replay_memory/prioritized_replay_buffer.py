@@ -350,9 +350,12 @@ class WrappedPrioritizedReplayBuffer(
     Returns:
        A tf op setting the priorities for prioritized sampling.
     """
-    return tf.py_func(
-        self.memory.set_priority, [indices, priorities], [],
-        name='prioritized_replay_set_priority_py_func')
+    if tf.executing_eagerly():
+      return self.memory.set_priority(indices, priorities)
+    else:
+      return tf.py_func(
+          self.memory.set_priority, [indices, priorities], [],
+          name='prioritized_replay_set_priority_py_func')
 
   def tf_get_priority(self, indices):
     """Gets the priorities for the given indices.
@@ -364,7 +367,10 @@ class WrappedPrioritizedReplayBuffer(
       priorities: tf.Tensor with dtype float and shape [n], the priorities at
         the indices.
     """
-    return tf.py_func(
-        self.memory.get_priority, [indices],
-        tf.float32,
-        name='prioritized_replay_get_priority_py_func')
+    if tf.executing_eagerly():
+      return self.memory.get_priority(indices)
+    else:
+      return tf.py_func(
+          self.memory.get_priority, [indices],
+          tf.float32,
+          name='prioritized_replay_get_priority_py_func')

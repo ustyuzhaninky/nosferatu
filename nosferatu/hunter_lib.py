@@ -26,6 +26,7 @@ import gym
 from gym.spaces.box import Box
 import numpy as np
 import tensorflow.compat.v1 as tf
+import tensorflow as tfe
 from tensorflow.compat.v1.keras import backend as K
 
 import cv2
@@ -79,6 +80,7 @@ class RainbowCapsuleHunter(tf.keras.Model):
     # self.flatten = tf.keras.layers.Flatten()
     # self.reshape2 = tf.keras.layers.Reshape((128, 100), name='Reshape')
     # self.buffer = seq_layers.Buffer(128)
+    
     # self.lstm1 = tf.keras.layers.LSTM(128, dropout = 0.2, recurrent_dropout = 0.2, return_sequences = True,
     #                                   kernel_initializer=self.kernel_initializer)
     # self.lstm2 = tf.keras.layers.LSTM(128, dropout = 0.2, recurrent_dropout = 0.2, return_sequences = True,

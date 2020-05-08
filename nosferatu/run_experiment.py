@@ -32,7 +32,7 @@ from nosferatu.dopamine.discrete_domains import unity_lib
 
 import numpy as np
 import tensorflow.compat.v1 as tf
-from tensorflow import summary
+from tensorflow import summary as tf_summary
 
 import gin.tf
 
@@ -182,7 +182,11 @@ class Runner(object):
     self._max_steps_per_episode = max_steps_per_episode
     self._base_dir = base_dir
     self._create_directories()
-    self._summary_writer = summary.create_file_writer(self._base_dir)
+    if tf.executing_eagerly():
+      self._summary_writer = tf_summary.create_file_writer(self._base_dir)
+      self._summary_writer.as_default()
+    else:
+      self._summary_writer = tf.summary.FileWriter(self._base_dir)
 
     self._environment = create_environment_fn()
     config = tf.ConfigProto(allow_soft_placement=True)
@@ -194,7 +198,8 @@ class Runner(object):
     self._agent = create_agent_fn(self._sess, self._environment,
                                   summary_writer=self._summary_writer)
     # self._summary_writer.add_graph(graph=tf.get_default_graph())
-    self._sess.run(tf.global_variables_initializer())
+    if not tf.executing_eagerly():
+      self._sess.run(tf.global_variables_initializer())
 
     self._initialize_checkpointer_and_maybe_resume(checkpoint_file_prefix)
 
@@ -435,18 +440,26 @@ class Runner(object):
       num_episodes_eval: int, number of evaluation episodes run.
       average_reward_eval: float, The average evaluation reward.
     """
-    summary = tf.Summary(value=[
-        tf.Summary.Value(tag='Train/NumEpisodes',
-                         simple_value=num_episodes_train),
-        tf.Summary.Value(tag='Train/AverageReturns',
-                         simple_value=average_reward_train),
-        tf.Summary.Value(tag='Eval/NumEpisodes',
-                         simple_value=num_episodes_eval),
-        tf.Summary.Value(tag='Eval/AverageReturns',
-                         simple_value=average_reward_eval)
-    ])
-    self._summary_writer.add_summary(summary, iteration)
-    self._summary_writer.scalar('Statistics', summary, iteration)
+    
+    if tf.executing_eagerly():
+      with self._summary_writer.as_default():
+        tf_summary.scalar('Train/NumEpisodes', num_episodes_train, step=iteration)
+        tf_summary.scalar('Train/AverageReturns', num_episodes_train, step=iteration)
+        tf_summary.scalar('Eval/NumEpisodes', num_episodes_eval, step=iteration)
+        tf_summary.scalar('Eval/AverageReturns', average_reward_eval, step=iteration)
+    else:
+      summary = tf.Summary(value=[
+          tf.Summary.Value(tag='Train/NumEpisodes',
+                          simple_value=num_episodes_train),
+          tf.Summary.Value(tag='Train/AverageReturns',
+                          simple_value=average_reward_train),
+          tf.Summary.Value(tag='Eval/NumEpisodes',
+                          simple_value=num_episodes_eval),
+          tf.Summary.Value(tag='Eval/AverageReturns',
+                          simple_value=average_reward_eval)
+      ])
+      self._summary_writer.add_summary(summary, iteration)
+    self._summary_writer.flush()
 
   def _log_experiment(self, iteration, statistics):
     """Records the results of the current iteration.
@@ -536,11 +549,17 @@ class TrainRunner(Runner):
   def _save_tensorboard_summaries(self, iteration, num_episodes,
                                   average_reward):
     """Save statistics as tensorboard summaries."""
-    summary = tf.Summary(value=[
-        tf.Summary.Value(tag='Train/NumEpisodes', simple_value=num_episodes),
-        tf.Summary.Value(
-            tag='Train/AverageReturns', simple_value=average_reward),
-    ])
-    # self._summary_writer.add_summary(summary, iteration)
-    self._summary_writer.scalar('Statistics', summary, iteration)
+    
+    if tf.executing_eagerly():
+      with self._summary_writer.as_default():
+        tf_summary.scalar('Train/NumEpisodes', num_episodes, step=iteration)
+        tf_summary.scalar('Train/AverageReturns', average_reward, step=iteration)
+    else:
+      summary = tf.Summary(value=[
+          tf.Summary.Value(tag='Train/NumEpisodes', simple_value=num_episodes),
+          tf.Summary.Value(
+              tag='Train/AverageReturns', simple_value=average_reward),
+      ])
+      self._summary_writer.add_summary(summary, iteration)
+    self._summary_writer.flush()
 

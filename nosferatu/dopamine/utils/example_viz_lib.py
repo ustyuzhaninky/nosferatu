@@ -70,7 +70,7 @@ class MyDQNAgent(dqn_agent.DQNAgent):
   def reload_checkpoint(self, checkpoint_path, use_legacy_checkpoint=False):
     if use_legacy_checkpoint:
       variables_to_restore = atari_lib.maybe_transform_variable_names(
-          tf.all_variables(), legacy_checkpoint_load=True)
+          tf.global_variables(), legacy_checkpoint_load=True)
     else:
       global_vars = set([x.name for x in tf.global_variables()])
       ckpt_vars = [
@@ -81,8 +81,9 @@ class MyDQNAgent(dqn_agent.DQNAgent):
       variables_to_restore = tf.get_variables_to_restore(
           include=include_vars)
     if variables_to_restore:
-      reloader = tf.train.Saver(var_list=variables_to_restore)
-      reloader.restore(self._sess, checkpoint_path)
+      # reloader = tf.train.Saver(var_list=variables_to_restore)
+      # reloader.restore(self._sess, checkpoint_path)
+      self.network.load_weights(checkpoint_path)
       tf.logging.info('Done restoring from %s', checkpoint_path)
     else:
       tf.logging.info('Nothing to restore!')
@@ -109,7 +110,7 @@ class MyRainbowAgent(rainbow_agent.RainbowAgent):
   def reload_checkpoint(self, checkpoint_path, use_legacy_checkpoint=False):
     if use_legacy_checkpoint:
       variables_to_restore = atari_lib.maybe_transform_variable_names(
-          tf.all_variables(), legacy_checkpoint_load=True)
+          tf.global_variables(), legacy_checkpoint_load=True)
     else:
       global_vars = set([x.name for x in tf.global_variables()])
       ckpt_vars = [
@@ -120,8 +121,9 @@ class MyRainbowAgent(rainbow_agent.RainbowAgent):
       variables_to_restore = layers.get_variables_to_restore(
           include=include_vars)
     if variables_to_restore:
-      reloader = tf.train.Saver(var_list=variables_to_restore)
-      reloader.restore(self._sess, checkpoint_path)
+      # reloader = tf.train.Saver(var_list=variables_to_restore)
+      # reloader.restore(self._sess, checkpoint_path)
+      self.network.load_weights(checkpoint_path)
       tf.logging.info('Done restoring from %s', checkpoint_path)
     else:
       tf.logging.info('Nothing to restore!')

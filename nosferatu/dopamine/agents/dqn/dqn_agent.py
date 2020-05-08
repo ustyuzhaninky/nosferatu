@@ -28,7 +28,7 @@ from nosferatu.dopamine.discrete_domains import atari_lib
 from nosferatu.dopamine.replay_memory import circular_replay_buffer
 import numpy as np
 import tensorflow.compat.v1 as tf
-
+from tensorflow import summary
 import gin.tf
 
 
@@ -189,23 +189,24 @@ class DQNAgent(object):
       # The last axis indicates the number of consecutive frames stacked.
       state_shape = (1,) + self.observation_shape + (stack_size,)
       self.state = np.zeros(state_shape)
-      self.state_ph = tf.placeholder(self.observation_dtype, state_shape,
-                                     name='state_ph')
+      if not tf.executing_eagerly():
+        self.state_ph = tf.placeholder(self.observation_dtype, state_shape,
+                                      name='state_ph')
       self._replay = self._build_replay_buffer(use_staging)
 
       self._build_networks()
 
-      self._train_op = self._build_train_op()
-      self._sync_qt_ops = self._build_sync_op()
+      if not tf.executing_eagerly():
+        self._train_op = self._build_train_op()
+        self._sync_qt_ops = self._build_sync_op()
 
-    if self.summary_writer is not None:
-      # All tf.summaries should have been defined prior to running this.
-      self._merged_summaries = tf.summary.merge_all()
+        # All tf.summaries should have been defined prior to running this.
+        # self._merged_summaries = summary.merge_all()
     self._sess = sess
 
-    var_map = atari_lib.maybe_transform_variable_names(tf.all_variables())
-    self._saver = tf.train.Saver(var_list=var_map,
-                                 max_to_keep=max_tf_checkpoints_to_keep)
+    var_map = atari_lib.maybe_transform_variable_names(tf.global_variables())
+    # self._saver = tf.train.Saver(var_list=var_map,
+    #                              max_to_keep=max_tf_checkpoints_to_keep)
 
     # Variables to be initialized by the agent once it interacts with the
     # environment.
@@ -242,14 +243,15 @@ class DQNAgent(object):
     # At each call to the network, the parameters will be reused.
     self.online_convnet = self._create_network(name='Online')
     self.target_convnet = self._create_network(name='Target')
-    self._net_outputs = self.online_convnet(self.state_ph)
+    if not tf.executing_eagerly():
+      self._net_outputs = self.online_convnet(self.state_ph)
+      self._q_argmax = tf.argmax(self._net_outputs.q_values, axis=1)[0]
+      self._replay_net_outputs = self.online_convnet(self._replay.states)
+      self._replay_next_target_net_outputs = self.target_convnet(
+        self._replay.next_states)
     # TODO(bellemare): Ties should be broken. They are unlikely to happen when
     # using a deep network, but may affect performance with a linear
     # approximation scheme.
-    self._q_argmax = tf.argmax(self._net_outputs.q_values, axis=1)[0]
-    self._replay_net_outputs = self.online_convnet(self._replay.states)
-    self._replay_next_target_net_outputs = self.target_convnet(
-        self._replay.next_states)
 
   def _build_replay_buffer(self, use_staging):
     """Creates the replay buffer used by the agent.
@@ -306,7 +308,7 @@ class DQNAgent(object):
         target, replay_chosen_q, reduction=tf.losses.Reduction.NONE)
     if self.summary_writer is not None:
       with tf.variable_scope('Losses'):
-        tf.summary.scalar('HuberLoss', tf.reduce_mean(loss))
+        summary.scalar('HuberLoss', tf.reduce_mean(loss))
     return self.optimizer.minimize(tf.reduce_mean(loss))
 
   def _build_sync_op(self):
@@ -403,7 +405,45 @@ class DQNAgent(object):
       return random.randint(0, self.num_actions - 1)
     else:
       # Choose the action with highest Q-value at the current state.
-      return self._sess.run(self._q_argmax, {self.state_ph: self.state})
+      if not tf.executing_eagerly():
+        return self._sess.run(self._q_argmax, {self.state_ph: self.state})
+      else:
+        self._net_outputs = self.online_convnet(self.state)
+        return tf.argmax(self._net_outputs.q_values, axis=1)[0]
+
+  def _eager_train_step(self):
+    """Runs training step ops in eager mode.
+    
+    """
+      
+    replay_action_one_hot = tf.one_hot(
+      self._replay.actions, self.num_actions, 1., 0., name='action_one_hot')
+    replay_chosen_q = tf.reduce_sum(
+      self._replay_net_outputs.q_values * replay_action_one_hot,
+      reduction_indices=1,
+      name='replay_chosen_q')
+    target = tf.stop_gradient(self._build_target_q_op())
+    loss = tf.losses.huber_loss(
+    target, replay_chosen_q, reduction=tf.losses.Reduction.NONE)
+    if self.summary_writer is not None:
+      with tf.variable_scope('Losses'):
+        summary.scalar('HuberLoss', tf.reduce_mean(loss), step=self.training_steps)
+    res = self.optimizer.minimize(tf.reduce_mean(loss))
+    summary.record_if(
+      self.summary_writer is not None and
+      self.training_steps > 0 and
+      self.training_steps % self.summary_writing_frequency == 0
+    )
+
+    scope = tf.get_default_graph().get_name_scope()
+    trainables_online = tf.get_collection(
+      tf.GraphKeys.TRAINABLE_VARIABLES, scope=os.path.join(scope, 'Online'))
+    trainables_target = tf.get_collection(
+      tf.GraphKeys.TRAINABLE_VARIABLES, scope=os.path.join(scope, 'Target'))
+
+    for (w_online, w_target) in zip(trainables_online, trainables_target):
+      # Assign weights from online to target network.
+      w_target.assign(w_online, use_locking=True)
 
   def _train_step(self):
     """Runs a single training step.
@@ -417,17 +457,21 @@ class DQNAgent(object):
     """
     # Run a train op at the rate of self.update_period if enough training steps
     # have been run. This matches the Nature DQN behaviour.
+    
     if self._replay.memory.add_count > self.min_replay_history:
       if self.training_steps % self.update_period == 0:
-        self._sess.run(self._train_op)
-        if (self.summary_writer is not None and
-            self.training_steps > 0 and
-            self.training_steps % self.summary_writing_frequency == 0):
-          summary = self._sess.run(self._merged_summaries)
-          self.summary_writer.add_summary(summary, self.training_steps)
-
-      if self.training_steps % self.target_update_period == 0:
-        self._sess.run(self._sync_qt_ops)
+        
+        if not tf.executing_eagerly():
+          self._sess.run(self._train_op)
+          # if (self.summary_writer is not None and
+              # self.training_steps > 0 and
+              # self.training_steps % self.summary_writing_frequency == 0):
+              # summary = self._sess.run(self._merged_summaries)
+              # self.summary_writer.add_summary(summary, self.training_steps)
+          if self.training_steps % self.target_update_period == 0:
+            self._sess.run(self._sync_qt_ops)
+        else:
+          self._eager_train_step()
 
     self.training_steps += 1
 
@@ -488,10 +532,11 @@ class DQNAgent(object):
     if not tf.gfile.Exists(checkpoint_dir):
       return None
     # Call the Tensorflow saver to checkpoint the graph.
-    self._saver.save(
-        self._sess,
-        os.path.join(checkpoint_dir, 'tf_ckpt'),
-        global_step=iteration_number)
+    self.network.save_weights(os.path.join(checkpoint_dir, 'tf_ckpt'))
+    # self._saver.save(
+    #     self._sess,
+    #     os.path.join(checkpoint_dir, 'tf_ckpt'),
+    #     global_step=iteration_number)
     # Checkpoint the out-of-graph replay buffer.
     self._replay.save(checkpoint_dir, iteration_number)
     bundle_dictionary = {}
@@ -535,7 +580,9 @@ class DQNAgent(object):
     else:
       tf.logging.warning("Unable to reload the agent's parameters!")
     # Restore the agent's TensorFlow graph.
-    self._saver.restore(self._sess,
-                        os.path.join(checkpoint_dir,
-                                     'tf_ckpt-{}'.format(iteration_number)))
+    self.network.load_weights(self.network, os.path.join(checkpoint_dir, 
+          'tf_ckpt-{}'.format(iteration_number)))
+    # self._saver.restore(self._sess,
+    #                     os.path.join(checkpoint_dir,
+    #                                  'tf_ckpt-{}'.format(iteration_number)))
     return True

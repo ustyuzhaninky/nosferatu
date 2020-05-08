@@ -481,3 +481,8 @@ def project_distribution(supports, weights, target_support,
     projection = tf.reduce_sum(inner_prod, 3)
     projection = tf.reshape(projection, [batch_size, num_dims])
     return projection
+
+  def _eager_train_step(self):
+    """Runs training step ops in eager mode."""
+    
+    return self._build_train_op()

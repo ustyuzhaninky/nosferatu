@@ -125,7 +125,7 @@ class Buffer(Layer):
         @param: iniializer, a buffer initializer. Standart is white noise from `glorot_uniform`.
 
         '''
-        super(Buffer, self).__init__(trainable=False, dynamic=True, **kwargs)
+        super(Buffer, self).__init__(trainable=False, dynamic=False, **kwargs)
         # if max_shift and max_shift >= n_steps:
         #     raise ValueError('Maximum shift must smaller than number of steps in the buffer: `max_shift > n_steps`.')
 
@@ -386,7 +386,7 @@ class Buffer(Layer):
 
 #python -um nosferatu.sequence.seq_layers
 # from tensorflow.python.framework.ops import disable_eager_execution
-# # disable_eager_execution()
+# disable_eager_execution()
 # inputs = tf.keras.Input(shape=(2), batch_size=1)
 # outputs = Buffer(5)(inputs)
 # model = tf.keras.Model(inputs, outputs)

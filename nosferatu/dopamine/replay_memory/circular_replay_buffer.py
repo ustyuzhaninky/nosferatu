@@ -752,6 +752,17 @@ class WrappedReplayBuffer(object):
       ValueError: If update_horizon is not positive.
       ValueError: If discount factor is not in [0, 1].
     """
+
+    self._states = None
+    self._actions = None
+    self._rewards = None
+    self._next_states = None
+    self._next_actions = None
+    self._next_rewards = None
+    self._terminals = None
+    self._indices = None
+    self._use_staging = use_staging
+
     if replay_capacity < update_horizon + 1:
       raise ValueError(
           'Update horizon ({}) should be significantly smaller '
@@ -782,8 +793,8 @@ class WrappedReplayBuffer(object):
           action_dtype=action_dtype,
           reward_shape=reward_shape,
           reward_dtype=reward_dtype)
-
-    self.create_sampling_ops(use_staging)
+    if not tf.executing_eagerly():
+      self.create_sampling_ops(use_staging)
 
   def add(self, observation, action, reward, terminal, *args):
     """Adds a transition to the replay memory.
@@ -816,10 +827,10 @@ class WrappedReplayBuffer(object):
     with tf.name_scope('sample_replay'):
       with tf.device('/cpu:*'):
         transition_type = self.memory.get_transition_elements()
-        transition_tensors = tf.py_func(
-            self.memory.sample_transition_batch, [],
-            [return_entry.type for return_entry in transition_type],
-            name='replay_sample_py_func')
+        transition_tensors = tf.py_funcion(
+          self.memory.sample_transition_batch, [],
+          [return_entry.type for return_entry in transition_type],
+          name='replay_sample_py_func')
         self._set_transition_shape(transition_tensors, transition_type)
         if use_staging:
           transition_tensors = self._set_up_staging(transition_tensors)
@@ -872,6 +883,73 @@ class WrappedReplayBuffer(object):
       prefetched_transition = prefetch_area.get()
 
     return prefetched_transition
+
+  @property
+  def transition(self):
+    """Transition of the replay buffer"""
+    with tf.name_scope('sample_replay'):
+      with tf.device('/cpu:*'):
+        transition_type = self.memory.get_transition_elements()
+        transition_tensors = self.memory.sample_transition_batch()
+        self._set_transition_shape(transition_tensors, transition_type)
+        if self._use_staging:
+          transition_tensors = self._set_up_staging(transition_tensors)
+          self._set_transition_shape(transition_tensors, transition_type)
+
+        # Unpack sample transition into member variables.
+        self.unpack_transition(transition_tensors, transition_type)
+    self._transition = collections.OrderedDict()
+    for element, element_type in zip(transition_tensors, transition_type):
+      self._transition[element_type.name] = element
+    return self._transition
+ 
+  @property
+  def states(self):
+    """States of the replay buffer"""
+    self._state = self.transition['state']
+    return self._state
+
+  @property
+  def actions(self):
+    """Actions of the replay buffer"""
+    self._action = self.transition['action']
+    return self._action
+
+  @property
+  def rewards(self):
+    """Rewards of the replay buffer"""
+    self._reward = self.transition['reward']
+    return self._reward
+  
+  @property
+  def next_states(self):
+    """Next states of the replay buffer"""
+    self._next_state = self.transition['next_state']
+    return self._next_state
+
+  @property
+  def next_actions(self):
+    """Next actions of the replay buffer"""
+    self._next_action = self.transition['next_action']
+    return self._next_action
+  
+  @property
+  def next_rewards(self):
+    """Next rewards of the replay buffer"""
+    self._next_reward = self.transition['next_reward']
+    return self._next_reward
+  
+  @property
+  def terminals(self):
+    """Terminals of the replay buffer"""
+    self._terminal = self.transition['terminal']
+    return self._terminal
+  
+  @property
+  def indices(self):
+    """Indices of the replay buffer"""
+    self._indices = self.transition['indices']
+    return self._indices
 
   def unpack_transition(self, transition_tensors, transition_type):
     """Unpacks the given transition into member variables.
