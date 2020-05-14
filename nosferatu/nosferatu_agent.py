@@ -61,7 +61,7 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
                num_atoms=51,
                vmax=10.,
                gamma=0.99,
-               update_horizon=1,
+               update_horizon=5,
                min_replay_history=20000,
                update_period=4,
                target_update_period=8000,

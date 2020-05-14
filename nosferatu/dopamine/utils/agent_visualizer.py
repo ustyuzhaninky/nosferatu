@@ -70,8 +70,8 @@ class AgentVisualizer(object):
     self.file_types = file_types
     self.filename_format = filename_format
     self.step = 0
-    self.record_frame = np.zeros((self.screen_height, self.screen_width, 3),
-                                 dtype=np.uint8)
+    self.record_frame = tf.convert_to_tensor((np.zeros((self.screen_height, self.screen_width, 3),
+                                 dtype=np.uint8))
     # This is necessary to avoid a `pygame.error: No available video device`
     # error.
     os.environ['SDL_VIDEODRIVER'] = 'dummy'

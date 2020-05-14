@@ -114,7 +114,7 @@ class RainbowCapsuleHunter(tf.keras.Model):
 
     # print(state.shape)
     x = tf.cast(state, tf.float32)
-    x = tf.div(x, 255.)
+    x = x / 255.
     
     # x = self.conv1(x)
     # x = self.conv2(x)

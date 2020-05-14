@@ -891,13 +891,13 @@ class WrappedReplayBuffer(object):
       with tf.device('/cpu:*'):
         transition_type = self.memory.get_transition_elements()
         transition_tensors = self.memory.sample_transition_batch()
-        self._set_transition_shape(transition_tensors, transition_type)
-        if self._use_staging:
-          transition_tensors = self._set_up_staging(transition_tensors)
-          self._set_transition_shape(transition_tensors, transition_type)
+        # self._set_transition_shape(transition_tensors, transition_type)
+        # if self._use_staging:
+          # transition_tensors = self._set_up_staging(transition_tensors)
+          # self._set_transition_shape(transition_tensors, transition_type)
 
         # Unpack sample transition into member variables.
-        self.unpack_transition(transition_tensors, transition_type)
+        # self.unpack_transition(transition_tensors, transition_type)
     self._transition = collections.OrderedDict()
     for element, element_type in zip(transition_tensors, transition_type):
       self._transition[element_type.name] = element

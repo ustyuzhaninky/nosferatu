@@ -187,10 +187,10 @@ class DQNAgent(object):
     with tf.device(tf_device):
       # Create a placeholder for the state input to the DQN network.
       # The last axis indicates the number of consecutive frames stacked.
-      state_shape = (1,) + self.observation_shape + (stack_size,)
-      self.state = np.zeros(state_shape)
+      self.state_shape = (1,) + self.observation_shape + (stack_size,)
+      self.state = tf.convert_to_tensor(np.zeros(self.state_shape), dtype=tf.int32)
       if not tf.executing_eagerly():
-        self.state_ph = tf.placeholder(self.observation_dtype, state_shape,
+        self.state_ph = tf.placeholder(self.observation_dtype, self.state_shape,
                                       name='state_ph')
       self._replay = self._build_replay_buffer(use_staging)
 
@@ -415,20 +415,33 @@ class DQNAgent(object):
     """Runs training step ops in eager mode.
     
     """
-      
-    replay_action_one_hot = tf.one_hot(
-      self._replay.actions, self.num_actions, 1., 0., name='action_one_hot')
-    replay_chosen_q = tf.reduce_sum(
-      self._replay_net_outputs.q_values * replay_action_one_hot,
-      reduction_indices=1,
-      name='replay_chosen_q')
-    target = tf.stop_gradient(self._build_target_q_op())
-    loss = tf.losses.huber_loss(
-    target, replay_chosen_q, reduction=tf.losses.Reduction.NONE)
+
+    with tf.GradientTape() as tape:
+      def loss_f():
+          self._replay_net_outputs = self.online_convnet(tf.convert_to_tensor(self._replay.states, dtype=tf.uint8))
+          self._replay_next_target_net_outputs = self.target_convnet(
+              self._replay.next_states)
+          replay_action_one_hot = tf.one_hot(
+            self._replay.actions, self.num_actions, 1., 0., name='action_one_hot')
+          replay_chosen_q = tf.reduce_sum(
+            self._replay_net_outputs.q_values * replay_action_one_hot,
+            reduction_indices=1,
+            name='replay_chosen_q')
+          target = tf.stop_gradient(self._build_target_q_op())
+          loss = tf.losses.huber_loss(
+          target, replay_chosen_q, reduction=tf.losses.Reduction.NONE)
+          return loss
+        
+      # weights_f = lambda: self.network.trainable_weights
+      # grad_f = tape.gradient(tf.py_function(lambda: loss_f(), inp=[], Tout=tf.float32), weights_f)
+      # self.optimizer.apply_gradients(zip(grad_f, self.network.trainable_weights))
+
     if self.summary_writer is not None:
       with tf.variable_scope('Losses'):
-        summary.scalar('HuberLoss', tf.reduce_mean(loss), step=self.training_steps)
-    res = self.optimizer.minimize(tf.reduce_mean(loss))
+        summary.scalar('HuberLoss', loss_f(), step=self.training_steps)
+    self.optimizer.minimize(loss_f)   
+    # self.optimizer.minimize(tf.py_function(loss_f, inp=[], Tout=tf.float32), self.network.trainable_weights)    
+
     summary.record_if(
       self.summary_writer is not None and
       self.training_steps > 0 and
@@ -511,7 +524,7 @@ class DQNAgent(object):
 
   def _reset_state(self):
     """Resets the agent state by filling it with zeros."""
-    self.state.fill(0)
+    self.state = tf.convert_to_tensor(np.zeros(self.state_shape), dtype=tf.int32)
 
   def bundle_and_checkpoint(self, checkpoint_dir, iteration_number):
     """Returns a self-contained bundle of the agent's state.

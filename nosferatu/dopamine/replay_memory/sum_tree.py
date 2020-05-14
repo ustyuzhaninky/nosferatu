@@ -25,6 +25,7 @@ import math
 import random
 
 import numpy as np
+import tensorflow.compat.v1 as tf
 
 
 class SumTree(object):
