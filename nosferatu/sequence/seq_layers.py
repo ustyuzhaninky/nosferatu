@@ -21,7 +21,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from tensorflow.python.framework import tensor_shape
 from tensorflow.python.keras.engine.input_spec import InputSpec
 from tensorflow.python.eager import context
@@ -40,7 +40,7 @@ from tensorflow.python.util.tf_export import keras_export
 from tensorflow.python.keras.utils import tf_utils
 from tensorflow.python.util import nest
 from tensorflow.python.framework import auto_control_deps
-from tensorflow.compat.v1.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.python.training.tracking import base as trackable
 from tensorflow.python.training.tracking import data_structures
 from tensorflow.python.framework import dtypes

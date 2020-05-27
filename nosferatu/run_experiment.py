@@ -31,7 +31,7 @@ from nosferatu.dopamine.discrete_domains import logger
 from nosferatu.dopamine.discrete_domains import unity_lib
 
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from tensorflow import summary as tf_summary
 
 import gin.tf

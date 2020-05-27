@@ -22,11 +22,11 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-import tensorflow.compat.v1 as tf
-from tensorflow.compat.v1.keras import initializers, layers
-from tensorflow.compat.v1.keras import activations
-from tensorflow.compat.v1.keras import backend as K
-from tensorflow.compat.v1.keras.layers import Layer
+import tensorflow as tf
+from tensorflow.keras import initializers, layers
+from tensorflow.keras import activations
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Layer
 
 def squash(x, axis=-1):
     s_squared_norm = K.sum(K.square(x), axis, keepdims=True) + K.epsilon()

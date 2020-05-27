@@ -27,7 +27,7 @@ import random
 from nosferatu.dopamine.discrete_domains import atari_lib
 from nosferatu.dopamine.replay_memory import circular_replay_buffer
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from tensorflow import summary
 import gin.tf
 
@@ -545,7 +545,7 @@ class DQNAgent(object):
     if not tf.gfile.Exists(checkpoint_dir):
       return None
     # Call the Tensorflow saver to checkpoint the graph.
-    self.network.save_weights(os.path.join(checkpoint_dir, 'tf_ckpt'))
+    self.online_convnet.save_weights(os.path.join(checkpoint_dir, 'tf_ckpt'))
     # self._saver.save(
     #     self._sess,
     #     os.path.join(checkpoint_dir, 'tf_ckpt'),
@@ -593,7 +593,7 @@ class DQNAgent(object):
     else:
       tf.logging.warning("Unable to reload the agent's parameters!")
     # Restore the agent's TensorFlow graph.
-    self.network.load_weights(self.network, os.path.join(checkpoint_dir, 
+    self.online_convnet.load_weights(os.path.join(checkpoint_dir,
           'tf_ckpt-{}'.format(iteration_number)))
     # self._saver.restore(self._sess,
     #                     os.path.join(checkpoint_dir,

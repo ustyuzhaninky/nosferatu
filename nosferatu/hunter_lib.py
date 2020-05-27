@@ -25,14 +25,15 @@ import gin
 import gym
 from gym.spaces.box import Box
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 import tensorflow as tfe
-from tensorflow.compat.v1.keras import backend as K
+from tensorflow.keras import backend as K
 
 import cv2
 from tensorflow.keras import layers as layers
 from nosferatu.capsules import cap_layers
 from nosferatu.sequence import seq_layers
+from nosferatu.neocortex import Online
 from nosferatu.dopamine.discrete_domains.atari_lib import *
 
 class RainbowCapsuleHunter(tf.keras.Model):
@@ -92,12 +93,20 @@ class RainbowCapsuleHunter(tf.keras.Model):
     #     64, [3, 3], strides=1, padding='same', activation=activation_fn,
     #     kernel_initializer=self.kernel_initializer, name='Conv')
     # self.flatten = tf.keras.layers.Flatten()
-    self.dense1 = tf.keras.layers.Dense(
-        512, activation=activation_fn,
-        kernel_initializer=self.kernel_initializer, name='fully_connected')
+    self.bolzmann1 = Online.OnlineBolzmannCell(512, online=True)
+    self.dropout1 = tf.keras.layers.Dropout(0.2)
+    self.bolzmann3 = Online.OnlineBolzmannCell(10, online=True)
+    self.dropout3 = tf.keras.layers.Dropout(0.2)
+    self.bolzmann4 = Online.OnlineBolzmannCell(512, online=True)
+    self.dropout4 = tf.keras.layers.Dropout(0.2)
+    # self.dense1 = tf.keras.layers.Dense(
+        # 512, activation=activation_fn,
+        # kernel_initializer=self.kernel_initializer, name='fully_connected')
     self.dense2 = tf.keras.layers.Dense(
         num_actions * num_atoms, kernel_initializer=self.kernel_initializer,
         name='fully_connected')
+    
+    self.noise = tf.keras.layers.GaussianNoise(0.1)
 
   def call(self, state):
     """Creates the output tensor/op given the state tensor as input.
@@ -132,12 +141,21 @@ class RainbowCapsuleHunter(tf.keras.Model):
     # x = self.lstm1(x)
     # x = self.lstm2(x)
     # x = self.lstm3(x)
-    x = self.dense1(x)
+    x = self.bolzmann1(x)
+    x = self.dropout1(x)
+    x = self.bolzmann2(x)
+    x = self.dropout2(x)
+    x = self.bolzmann3(x)
+    x = self.dropout3(x)
+    x = self.bolzmann4(x)
+    x = self.dropout4(x)
+    x = self.bolzmann5(x)
+    x = self.dropout5(x)
+    # x = self.dense1(x)
     x = self.dense2(x)
+    x = self.noise(x, training=True)
 
     logits = tf.reshape(x, [-1, self.num_actions, self.num_atoms])
     probabilities = tf.keras.activations.softmax(logits)
     q_values = tf.reduce_sum(self.support * probabilities, axis=2)
     return RainbowNetworkType(q_values, logits, probabilities)
-
-

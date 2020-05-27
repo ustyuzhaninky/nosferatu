@@ -42,7 +42,7 @@ from nosferatu.dopamine.agents.rainbow import rainbow_agent
 from nosferatu.dopamine.discrete_domains import atari_lib
 from nosferatu import hunter_lib
 from nosferatu.dopamine.replay_memory import prioritized_replay_buffer
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 import gin.tf
 
@@ -163,3 +163,40 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
                            self._num_capsule, self._dim_capsule, routings=self._routings,
                            name=name)
     return network
+  
+  def _select_action(self):
+    """Select an action from the set of available actions.
+
+    Chooses an action randomly with probability self._calculate_epsilon(), and
+    otherwise acts greedily according to the current Q-value estimates.
+
+    Returns:
+       int, the selected action.
+    """
+    if self.eval_mode:
+      epsilon = self.epsilon_eval
+    else:
+      epsilon = self.epsilon_fn(
+          self.epsilon_decay_period,
+          self.training_steps,
+          self.min_replay_history,
+          self.epsilon_train)
+    
+    # take a winning action
+    # if not tf.executing_eagerly():
+    #   return self._sess.run(self._q_argmax, {self.state_ph: self.state})
+    # else:
+    #   self._net_outputs = self.online_convnet(self.state)
+    #   return tf.argmax(self._net_outputs.q_values, axis=1)[0]
+    
+    # Take a bold action (high probability) or a random one
+    if random.random() <= epsilon:
+      # Choose a random action with probability epsilon.
+      return random.randint(0, self.num_actions - 1)
+    else:
+      # Choose the action with highest Q-value at the current state.
+      if not tf.executing_eagerly():
+        return self._sess.run(self._q_argmax, {self.state_ph: self.state})
+      else:
+        self._net_outputs = self.online_convnet(self.state)
+        return tf.argmax(self._net_outputs.q_values, axis=1)[0]

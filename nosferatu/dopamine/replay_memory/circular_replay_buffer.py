@@ -31,7 +31,7 @@ import os
 import pickle
 
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 import gin.tf
 from tensorflow.python.ops.data_flow_ops import StagingArea

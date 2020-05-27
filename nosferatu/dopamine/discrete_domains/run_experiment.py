@@ -31,7 +31,7 @@ from nosferatu.dopamine.discrete_domains import iteration_statistics
 from nosferatu.dopamine.discrete_domains import logger
 
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 import gin.tf
 

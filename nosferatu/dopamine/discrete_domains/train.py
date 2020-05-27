@@ -29,7 +29,7 @@ from absl import flags
 
 from nosferatu.dopamine.discrete_domains import run_experiment
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from tensorflow.python.framework.ops import disable_eager_execution
 
 disable_eager_execution()

@@ -42,9 +42,9 @@ from dopamine.utils import bar_plotter
 from dopamine.utils import line_plotter
 import gin
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 # from tensorflow.contrib import slim as layers
-from tensorflow.compat.v1 import layers
+from tensorflow import layers
 
 class MyDQNAgent(dqn_agent.DQNAgent):
   """Sample DQN agent to visualize Q-values and rewards."""

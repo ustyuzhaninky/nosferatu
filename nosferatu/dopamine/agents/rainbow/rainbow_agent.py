@@ -42,7 +42,7 @@ from __future__ import print_function
 from nosferatu.dopamine.agents.dqn import dqn_agent
 from nosferatu.dopamine.discrete_domains import atari_lib
 from nosferatu.dopamine.replay_memory import prioritized_replay_buffer
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 
 import gin.tf
 

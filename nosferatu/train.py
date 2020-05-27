@@ -15,7 +15,7 @@
 r"""The entry point for running a Dopamine agent.
 
 Example:
-    python -um nosferatu.train --base_dir=..\tmp\nosferatu_caps --gin_files=D:\Projects\python\PhDSub\TowerProject\nosferatu\nosferatu\configs\nosferatu_otc.gin
+    python -um nosferatu.train --base_dir=..\tmp\nosferatu_caps --gin_files=D:\Jorgen\Projects\python\PhDSub\TowerProject\nosferatu\nosferatu\configs\nosferatu_otc.gin
     
 """
 
@@ -28,10 +28,12 @@ from absl import flags
 
 from nosferatu import run_experiment
 
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from tensorflow.python.framework.ops import disable_eager_execution
 
 # disable_eager_execution()
+tf.enable_v2_behavior()
+tf.config.experimental_run_functions_eagerly(True)
 tf.logging.set_verbosity(tf.logging.ERROR)
 # tf.disable_tensor_equality()
 
