@@ -30,6 +30,7 @@ from absl import flags
 from nosferatu.dopamine.discrete_domains import run_experiment
 
 import tensorflow as tf
+from absl import logging
 from tensorflow.python.framework.ops import disable_eager_execution
 
 disable_eager_execution()
@@ -55,7 +56,7 @@ def main(unused_argv):
     unused_argv: Arguments (unused).
   """
   print(FLAGS.gin_files)
-  tf.logging.set_verbosity(tf.logging.INFO)
+  logging.set_verbosity(logging.INFO)
   run_experiment.load_gin_configs(FLAGS.gin_files, FLAGS.gin_bindings)
   runner = run_experiment.create_runner(FLAGS.base_dir)
   runner.run_experiment()

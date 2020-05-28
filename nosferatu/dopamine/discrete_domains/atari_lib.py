@@ -45,6 +45,7 @@ import math
 
 
 import gin
+from absl import logging
 import gym
 from gym.spaces.box import Box
 import numpy as np
@@ -236,7 +237,7 @@ def maybe_transform_variable_names(variables, legacy_checkpoint_load=False):
   Returns:
     dict or None, of <new_names, var>.
   """
-  tf.logging.info('legacy_checkpoint_load: %s', legacy_checkpoint_load)
+  logging.info('legacy_checkpoint_load: %s', legacy_checkpoint_load)
   if legacy_checkpoint_load:
     name_map = {}
     for var in variables:

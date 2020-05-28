@@ -52,7 +52,6 @@ class RainbowAgent(dqn_agent.DQNAgent):
   """A compact implementation of a simplified Rainbow agent."""
 
   def __init__(self,
-               sess,
                num_actions,
                observation_shape=dqn_agent.NATURE_DQN_OBSERVATION_SHAPE,
                observation_dtype=dqn_agent.NATURE_DQN_DTYPE,
@@ -72,14 +71,13 @@ class RainbowAgent(dqn_agent.DQNAgent):
                replay_scheme='prioritized',
                tf_device='/cpu:*',
                use_staging=True,
-               optimizer=tf.train.AdamOptimizer(
+               optimizer=tf.keras.optimizers.Adam(
                    learning_rate=0.00025, epsilon=0.0003125),
                summary_writer=None,
                summary_writing_frequency=500):
     """Initializes the agent and constructs the components of its graph.
 
     Args:
-      sess: `tf.Session`, for executing ops.
       num_actions: int, number of actions the agent can take at any state.
       observation_shape: tuple of ints or an int. If single int, the observation
         is assumed to be a 2D square.
@@ -128,7 +126,6 @@ class RainbowAgent(dqn_agent.DQNAgent):
 
     dqn_agent.DQNAgent.__init__(
         self,
-        sess=sess,
         num_actions=num_actions,
         observation_shape=observation_shape,
         observation_dtype=observation_dtype,
@@ -286,8 +283,7 @@ class RainbowAgent(dqn_agent.DQNAgent):
 
     with tf.control_dependencies([update_priorities_op]):
       if self.summary_writer is not None:
-        with tf.variable_scope('Losses'):
-          tf.summary.scalar('CrossEntropyLoss', tf.reduce_mean(loss))
+        tf.summary.scalar('CrossEntropyLoss', tf.reduce_mean(loss))
       # Schaul et al. reports a slightly different rule, where 1/N is also
       # exponentiated by beta. Not doing so seems more reasonable, and did not
       # impact performance in our experiments.
@@ -301,7 +297,7 @@ class RainbowAgent(dqn_agent.DQNAgent):
                         priority=None):
     """Stores a transition when in training mode.
 
-    Executes a tf session and executes replay buffer ops in order to store the
+    Executes replay buffer ops in order to store the
     following tuple in the replay buffer (last_observation, action, reward,
     is_terminal, priority).
 

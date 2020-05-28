@@ -49,7 +49,6 @@ import gin.tf
 @gin.configurable
 class NosferatuAgent(rainbow_agent.RainbowAgent):
   def __init__(self,
-               sess,
                num_actions,
                num_capsule,
                dim_capsule,
@@ -72,14 +71,13 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
                replay_scheme='prioritized',
                tf_device='/gpu:0',
                use_staging=True,
-               optimizer=tf.train.AdamOptimizer(
+               optimizer=tf.keras.optimizers.Adam(
                    learning_rate=0.00025, epsilon=0.0003125),
                summary_writer=None,
                summary_writing_frequency=500):
     """Initializes the agent and constructs the components of its graph.
 
     Args:
-      sess: `tf.Session`, for executing ops.
       num_actions: int, number of actions the agent can take at any state.
       observation_shape: tuple of ints or an int. If single int, the observation
         is assumed to be a 2D square.
@@ -126,7 +124,6 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
 
     rainbow_agent.RainbowAgent.__init__(
         self,
-        sess=sess,
         num_actions=num_actions,
         num_atoms=num_atoms,
         replay_scheme=replay_scheme,
@@ -183,20 +180,14 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
           self.epsilon_train)
     
     # take a winning action
-    # if not tf.executing_eagerly():
-    #   return self._sess.run(self._q_argmax, {self.state_ph: self.state})
-    # else:
-    #   self._net_outputs = self.online_convnet(self.state)
-    #   return tf.argmax(self._net_outputs.q_values, axis=1)[0]
+    self._net_outputs = self.online_convnet(self.state)
+    return tf.argmax(self._net_outputs.q_values, axis=1)[0]
     
     # Take a bold action (high probability) or a random one
-    if random.random() <= epsilon:
-      # Choose a random action with probability epsilon.
-      return random.randint(0, self.num_actions - 1)
-    else:
-      # Choose the action with highest Q-value at the current state.
-      if not tf.executing_eagerly():
-        return self._sess.run(self._q_argmax, {self.state_ph: self.state})
-      else:
-        self._net_outputs = self.online_convnet(self.state)
-        return tf.argmax(self._net_outputs.q_values, axis=1)[0]
+    # if tf.random.random() <= epsilon:
+    #   # Choose a random action with probability epsilon.
+    #   return random.randint(0, self.num_actions - 1)
+    # else:
+    #   # Choose the action with highest Q-value at the current state.
+    #   self._net_outputs = self.online_convnet(self.state)
+    #   return tf.argmax(self._net_outputs.q_values, axis=1)[0]

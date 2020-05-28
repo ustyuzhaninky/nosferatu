@@ -263,8 +263,7 @@ class WrappedPrioritizedReplayBuffer(
     * To add a transition:  Call the add function.
 
     * To sample a batch:  Query any of the tensors in the transition dictionary.
-                          Every sess.run that requires any of these tensors will
-                          sample a new transition.
+                          
   """
 
   def __init__(self,
@@ -367,10 +366,4 @@ class WrappedPrioritizedReplayBuffer(
       priorities: tf.Tensor with dtype float and shape [n], the priorities at
         the indices.
     """
-    if tf.executing_eagerly():
-      return self.memory.get_priority(indices)
-    else:
-      return tf.py_func(
-          self.memory.get_priority, [indices],
-          tf.float32,
-          name='prioritized_replay_get_priority_py_func')
+    return self.memory.get_priority(indices)

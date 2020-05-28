@@ -28,6 +28,7 @@ from nosferatu.dopamine.discrete_domains import atari_lib
 from nosferatu.dopamine.replay_memory import circular_replay_buffer
 import numpy as np
 import tensorflow as tf
+from absl import logging
 from tensorflow import summary
 import gin.tf
 
@@ -75,7 +76,6 @@ class DQNAgent(object):
   """An implementation of the DQN agent."""
 
   def __init__(self,
-               sess,
                num_actions,
                observation_shape=atari_lib.NATURE_DQN_OBSERVATION_SHAPE,
                observation_dtype=atari_lib.NATURE_DQN_DTYPE,
@@ -94,19 +94,19 @@ class DQNAgent(object):
                eval_mode=False,
                use_staging=True,
                max_tf_checkpoints_to_keep=4,
-               optimizer=tf.train.RMSPropOptimizer(
+               optimizer=tf.keras.optimizers.Adam(#RMSPropOptimizer(
                    learning_rate=0.00025,
                    decay=0.95,
-                   momentum=0.0,
+                  #  momentum=0.0,
                    epsilon=0.00001,
-                   centered=True),
+                  #  centered=True
+                   ),
                summary_writer=None,
                summary_writing_frequency=500,
                allow_partial_reload=False):
     """Initializes the agent and constructs the components of its graph.
 
     Args:
-      sess: `tf.Session`, for executing ops.
       num_actions: int, number of actions the agent can take at any state.
       observation_shape: tuple of ints describing the observation shape.
       observation_dtype: tf.DType, specifies the type of the observations. Note
@@ -146,20 +146,20 @@ class DQNAgent(object):
         (for instance, only the network parameters).
     """
     assert isinstance(observation_shape, tuple)
-    tf.logging.info('Creating %s agent with the following parameters:',
+    logging.info('Creating %s agent with the following parameters:',
                     self.__class__.__name__)
-    tf.logging.info('\t gamma: %f', gamma)
-    tf.logging.info('\t update_horizon: %f', update_horizon)
-    tf.logging.info('\t min_replay_history: %d', min_replay_history)
-    tf.logging.info('\t update_period: %d', update_period)
-    tf.logging.info('\t target_update_period: %d', target_update_period)
-    tf.logging.info('\t epsilon_train: %f', epsilon_train)
-    tf.logging.info('\t epsilon_eval: %f', epsilon_eval)
-    tf.logging.info('\t epsilon_decay_period: %d', epsilon_decay_period)
-    tf.logging.info('\t tf_device: %s', tf_device)
-    tf.logging.info('\t use_staging: %s', use_staging)
-    tf.logging.info('\t optimizer: %s', optimizer)
-    tf.logging.info('\t max_tf_checkpoints_to_keep: %d',
+    logging.info('\t gamma: %f', gamma)
+    logging.info('\t update_horizon: %f', update_horizon)
+    logging.info('\t min_replay_history: %d', min_replay_history)
+    logging.info('\t update_period: %d', update_period)
+    logging.info('\t target_update_period: %d', target_update_period)
+    logging.info('\t epsilon_train: %f', epsilon_train)
+    logging.info('\t epsilon_eval: %f', epsilon_eval)
+    logging.info('\t epsilon_decay_period: %d', epsilon_decay_period)
+    logging.info('\t tf_device: %s', tf_device)
+    logging.info('\t use_staging: %s', use_staging)
+    logging.info('\t optimizer: %s', optimizer)
+    logging.info('\t max_tf_checkpoints_to_keep: %d',
                     max_tf_checkpoints_to_keep)
 
     self.num_actions = num_actions
@@ -189,22 +189,15 @@ class DQNAgent(object):
       # The last axis indicates the number of consecutive frames stacked.
       self.state_shape = (1,) + self.observation_shape + (stack_size,)
       self.state = tf.convert_to_tensor(np.zeros(self.state_shape), dtype=tf.int32)
-      if not tf.executing_eagerly():
-        self.state_ph = tf.placeholder(self.observation_dtype, self.state_shape,
-                                      name='state_ph')
+
       self._replay = self._build_replay_buffer(use_staging)
 
       self._build_networks()
 
-      if not tf.executing_eagerly():
-        self._train_op = self._build_train_op()
-        self._sync_qt_ops = self._build_sync_op()
-
         # All tf.summaries should have been defined prior to running this.
         # self._merged_summaries = summary.merge_all()
-    self._sess = sess
 
-    var_map = atari_lib.maybe_transform_variable_names(tf.global_variables())
+    var_map = atari_lib.maybe_transform_variable_names(tf.compat.v1.global_variables())
     # self._saver = tf.train.Saver(var_list=var_map,
     #                              max_to_keep=max_tf_checkpoints_to_keep)
 
@@ -243,12 +236,6 @@ class DQNAgent(object):
     # At each call to the network, the parameters will be reused.
     self.online_convnet = self._create_network(name='Online')
     self.target_convnet = self._create_network(name='Target')
-    if not tf.executing_eagerly():
-      self._net_outputs = self.online_convnet(self.state_ph)
-      self._q_argmax = tf.argmax(self._net_outputs.q_values, axis=1)[0]
-      self._replay_net_outputs = self.online_convnet(self._replay.states)
-      self._replay_next_target_net_outputs = self.target_convnet(
-        self._replay.next_states)
     # TODO(bellemare): Ties should be broken. They are unlikely to happen when
     # using a deep network, but may affect performance with a linear
     # approximation scheme.
@@ -300,15 +287,13 @@ class DQNAgent(object):
         self._replay.actions, self.num_actions, 1., 0., name='action_one_hot')
     replay_chosen_q = tf.reduce_sum(
         self._replay_net_outputs.q_values * replay_action_one_hot,
-        reduction_indices=1,
         name='replay_chosen_q')
 
     target = tf.stop_gradient(self._build_target_q_op())
-    loss = tf.losses.huber_loss(
-        target, replay_chosen_q, reduction=tf.losses.Reduction.NONE)
+    loss = tf.keras.losses.Huber(
+        reduction=tf.losses.Reduction.NONE)(target, replay_chosen_q)
     if self.summary_writer is not None:
-      with tf.variable_scope('Losses'):
-        summary.scalar('HuberLoss', tf.reduce_mean(loss))
+      summary.scalar('HuberLoss', tf.reduce_mean(loss))
     return self.optimizer.minimize(tf.reduce_mean(loss))
 
   def _build_sync_op(self):
@@ -319,15 +304,15 @@ class DQNAgent(object):
     """
     # Get trainable variables from online and target DQNs
     sync_qt_ops = []
-    scope = tf.get_default_graph().get_name_scope()
-    trainables_online = tf.get_collection(
-        tf.GraphKeys.TRAINABLE_VARIABLES, scope=os.path.join(scope, 'Online'))
-    trainables_target = tf.get_collection(
-        tf.GraphKeys.TRAINABLE_VARIABLES, scope=os.path.join(scope, 'Target'))
+    # scope = tf.get_default_graph().get_name_scope()
+    # trainables_online = tf.get_collection(
+        # tf.GraphKeys.TRAINABLE_VARIABLES, scope=os.path.join(scope, 'Online'))
+    # trainables_target = tf.get_collection(
+        # tf.GraphKeys.TRAINABLE_VARIABLES, scope=os.path.join(scope, 'Target'))
 
-    for (w_online, w_target) in zip(trainables_online, trainables_target):
+    # for (w_online, w_target) in zip(trainables_online, trainables_target):
       # Assign weights from online to target network.
-      sync_qt_ops.append(w_target.assign(w_online, use_locking=True))
+      # sync_qt_ops.append(w_target.assign(w_online, use_locking=True))
     return sync_qt_ops
 
   def begin_episode(self, observation):
@@ -405,11 +390,8 @@ class DQNAgent(object):
       return random.randint(0, self.num_actions - 1)
     else:
       # Choose the action with highest Q-value at the current state.
-      if not tf.executing_eagerly():
-        return self._sess.run(self._q_argmax, {self.state_ph: self.state})
-      else:
-        self._net_outputs = self.online_convnet(self.state)
-        return tf.argmax(self._net_outputs.q_values, axis=1)[0]
+      self._net_outputs = self.online_convnet(self.state)
+      return tf.argmax(self._net_outputs.q_values, axis=1)[0]
 
   def _eager_train_step(self):
     """Runs training step ops in eager mode.
@@ -425,11 +407,10 @@ class DQNAgent(object):
             self._replay.actions, self.num_actions, 1., 0., name='action_one_hot')
           replay_chosen_q = tf.reduce_sum(
             self._replay_net_outputs.q_values * replay_action_one_hot,
-            reduction_indices=1,
             name='replay_chosen_q')
           target = tf.stop_gradient(self._build_target_q_op())
-          loss = tf.losses.huber_loss(
-          target, replay_chosen_q, reduction=tf.losses.Reduction.NONE)
+          loss = tf.losses.Huber(reduction=tf.losses.Reduction.NONE)(
+          target, replay_chosen_q)
           return loss
         
       # weights_f = lambda: self.network.trainable_weights
@@ -437,8 +418,7 @@ class DQNAgent(object):
       # self.optimizer.apply_gradients(zip(grad_f, self.network.trainable_weights))
 
     if self.summary_writer is not None:
-      with tf.variable_scope('Losses'):
-        summary.scalar('HuberLoss', loss_f(), step=self.training_steps)
+      summary.scalar('HuberLoss', loss_f(), step=self.training_steps)
     self.optimizer.minimize(loss_f)   
     # self.optimizer.minimize(tf.py_function(loss_f, inp=[], Tout=tf.float32), self.network.trainable_weights)    
 
@@ -448,15 +428,15 @@ class DQNAgent(object):
       self.training_steps % self.summary_writing_frequency == 0
     )
 
-    scope = tf.get_default_graph().get_name_scope()
-    trainables_online = tf.get_collection(
-      tf.GraphKeys.TRAINABLE_VARIABLES, scope=os.path.join(scope, 'Online'))
-    trainables_target = tf.get_collection(
-      tf.GraphKeys.TRAINABLE_VARIABLES, scope=os.path.join(scope, 'Target'))
+    # scope = tf.get_default_graph().get_name_scope()
+    # trainables_online = tf.get_collection(
+      # tf.GraphKeys.TRAINABLE_VARIABLES, scope=os.path.join(scope, 'Online'))
+    # trainables_target = tf.get_collection(
+      # tf.GraphKeys.TRAINABLE_VARIABLES, scope=os.path.join(scope, 'Target'))
 
-    for (w_online, w_target) in zip(trainables_online, trainables_target):
+    # for (w_online, w_target) in zip(trainables_online, trainables_target):
       # Assign weights from online to target network.
-      w_target.assign(w_online, use_locking=True)
+      # w_target.assign(w_online, use_locking=True)
 
   def _train_step(self):
     """Runs a single training step.
@@ -473,18 +453,7 @@ class DQNAgent(object):
     
     if self._replay.memory.add_count > self.min_replay_history:
       if self.training_steps % self.update_period == 0:
-        
-        if not tf.executing_eagerly():
-          self._sess.run(self._train_op)
-          # if (self.summary_writer is not None and
-              # self.training_steps > 0 and
-              # self.training_steps % self.summary_writing_frequency == 0):
-              # summary = self._sess.run(self._merged_summaries)
-              # self.summary_writer.add_summary(summary, self.training_steps)
-          if self.training_steps % self.target_update_period == 0:
-            self._sess.run(self._sync_qt_ops)
-        else:
-          self._eager_train_step()
+        self._eager_train_step()
 
     self.training_steps += 1
 
@@ -507,7 +476,7 @@ class DQNAgent(object):
   def _store_transition(self, last_observation, action, reward, is_terminal):
     """Stores an experienced transition.
 
-    Executes a tf session and executes replay buffer ops in order to store the
+    Executes replay buffer ops in order to store the
     following tuple in the replay buffer:
       (last_observation, action, reward, is_terminal).
 
@@ -542,12 +511,11 @@ class DQNAgent(object):
       A dict containing additional Python objects to be checkpointed by the
         experiment. If the checkpoint directory does not exist, returns None.
     """
-    if not tf.gfile.Exists(checkpoint_dir):
+    if not tf.io.gfile.exists(checkpoint_dir):
       return None
     # Call the Tensorflow saver to checkpoint the graph.
     self.online_convnet.save_weights(os.path.join(checkpoint_dir, 'tf_ckpt'))
     # self._saver.save(
-    #     self._sess,
     #     os.path.join(checkpoint_dir, 'tf_ckpt'),
     #     global_step=iteration_number)
     # Checkpoint the out-of-graph replay buffer.
@@ -583,7 +551,7 @@ class DQNAgent(object):
       if not self.allow_partial_reload:
         # If we don't allow partial reloads, we will return False.
         return False
-      tf.logging.warning('Unable to reload replay buffer!')
+      logging.warning('Unable to reload replay buffer!')
     if bundle_dictionary is not None:
       for key in self.__dict__:
         if key in bundle_dictionary:
@@ -591,11 +559,11 @@ class DQNAgent(object):
     elif not self.allow_partial_reload:
       return False
     else:
-      tf.logging.warning("Unable to reload the agent's parameters!")
+      logging.warning("Unable to reload the agent's parameters!")
     # Restore the agent's TensorFlow graph.
     self.online_convnet.load_weights(os.path.join(checkpoint_dir,
           'tf_ckpt-{}'.format(iteration_number)))
-    # self._saver.restore(self._sess,
+    # self._saver.restore(
     #                     os.path.join(checkpoint_dir,
     #                                  'tf_ckpt-{}'.format(iteration_number)))
     return True

@@ -36,7 +36,7 @@ import tensorflow as tf
 import gin.tf
 import cv2
 
-# slim = tf.contrib.slim
+# slim = tensorflow.contrib.slim
 slim = tf.compat.v1.layers
 
 

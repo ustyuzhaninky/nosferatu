@@ -49,8 +49,8 @@ from tensorflow import layers
 class MyDQNAgent(dqn_agent.DQNAgent):
   """Sample DQN agent to visualize Q-values and rewards."""
 
-  def __init__(self, sess, num_actions, summary_writer=None):
-    super(MyDQNAgent, self).__init__(sess, num_actions,
+  def __init__(self, num_actions, summary_writer=None):
+    super(MyDQNAgent, self).__init__(num_actions,
                                      summary_writer=summary_writer)
     self.q_values = [[] for _ in range(num_actions)]
     self.rewards = []
@@ -61,8 +61,7 @@ class MyDQNAgent(dqn_agent.DQNAgent):
 
   def _select_action(self):
     action = super(MyDQNAgent, self)._select_action()
-    q_vals = self._sess.run(self._net_outputs.q_values,
-                            {self.state_ph: self.state})[0]
+    q_vals = self._net_outputs.q_values(self.state)
     for i in range(len(q_vals)):
       self.q_values[i].append(q_vals[i])
     return action
@@ -70,9 +69,9 @@ class MyDQNAgent(dqn_agent.DQNAgent):
   def reload_checkpoint(self, checkpoint_path, use_legacy_checkpoint=False):
     if use_legacy_checkpoint:
       variables_to_restore = atari_lib.maybe_transform_variable_names(
-          tf.global_variables(), legacy_checkpoint_load=True)
+          tf.compat.v1.global_variables(), legacy_checkpoint_load=True)
     else:
-      global_vars = set([x.name for x in tf.global_variables()])
+      global_vars = set([x.name for x in tf.compat.v1.global_variables()])
       ckpt_vars = [
           '{}:0'.format(name)
           for name, _ in tf.train.list_variables(checkpoint_path)
@@ -82,11 +81,11 @@ class MyDQNAgent(dqn_agent.DQNAgent):
           include=include_vars)
     if variables_to_restore:
       # reloader = tf.train.Saver(var_list=variables_to_restore)
-      # reloader.restore(self._sess, checkpoint_path)
+      # reloader.restore(checkpoint_path)
       self.network.load_weights(checkpoint_path)
-      tf.logging.info('Done restoring from %s', checkpoint_path)
+      logging.info('Done restoring from %s', checkpoint_path)
     else:
-      tf.logging.info('Nothing to restore!')
+      logging.info('Nothing to restore!')
 
   def get_q_values(self):
     return self.q_values
@@ -98,8 +97,8 @@ class MyDQNAgent(dqn_agent.DQNAgent):
 class MyRainbowAgent(rainbow_agent.RainbowAgent):
   """Sample Rainbow agent to visualize Q-values and rewards."""
 
-  def __init__(self, sess, num_actions, summary_writer=None):
-    super(MyRainbowAgent, self).__init__(sess, num_actions,
+  def __init__(self, num_actions, summary_writer=None):
+    super(MyRainbowAgent, self).__init__(num_actions,
                                          summary_writer=summary_writer)
     self.rewards = []
 
@@ -110,9 +109,9 @@ class MyRainbowAgent(rainbow_agent.RainbowAgent):
   def reload_checkpoint(self, checkpoint_path, use_legacy_checkpoint=False):
     if use_legacy_checkpoint:
       variables_to_restore = atari_lib.maybe_transform_variable_names(
-          tf.global_variables(), legacy_checkpoint_load=True)
+          tf.compat.v1.global_variables(), legacy_checkpoint_load=True)
     else:
-      global_vars = set([x.name for x in tf.global_variables()])
+      global_vars = set([x.name for x in tf.compat.v1.global_variables()])
       ckpt_vars = [
           '{}:0'.format(name)
           for name, _ in tf.train.list_variables(checkpoint_path)
@@ -122,15 +121,14 @@ class MyRainbowAgent(rainbow_agent.RainbowAgent):
           include=include_vars)
     if variables_to_restore:
       # reloader = tf.train.Saver(var_list=variables_to_restore)
-      # reloader.restore(self._sess, checkpoint_path)
+      # reloader.restore(checkpoint_path)
       self.network.load_weights(checkpoint_path)
-      tf.logging.info('Done restoring from %s', checkpoint_path)
+      logging.info('Done restoring from %s', checkpoint_path)
     else:
-      tf.logging.info('Nothing to restore!')
+      logging.info('Nothing to restore!')
 
   def get_probabilities(self):
-    return self._sess.run(tf.squeeze(self._net_outputs.probabilities),
-                          {self.state_ph: self.state})
+    return self._net_outputs.probabilities(self.state)
 
   def get_rewards(self):
     return [np.cumsum(self.rewards)]
@@ -152,13 +150,13 @@ class MyRunner(run_experiment.Runner):
 
   def _run_one_iteration(self, iteration):
     statistics = iteration_statistics.IterationStatistics()
-    tf.logging.info('Starting iteration %d', iteration)
+    logging.info('Starting iteration %d', iteration)
     _, _ = self._run_eval_phase(statistics)
     return statistics.data_lists
 
   def visualize(self, record_path, num_global_steps=500):
-    if not tf.gfile.Exists(record_path):
-      tf.gfile.MakeDirs(record_path)
+    if not tf.io.gfile.exists(record_path):
+      tf.io.gfile.makedirs(record_path)
     self._agent.eval_mode = True
 
     # Set up the game playback rendering.
@@ -220,13 +218,13 @@ class MyRunner(run_experiment.Runner):
     visualizer.generate_video()
 
 
-def create_dqn_agent(sess, environment, summary_writer=None):
-  return MyDQNAgent(sess, num_actions=environment.action_space.n,
+def create_dqn_agent(environment, summary_writer=None):
+  return MyDQNAgent(num_actions=environment.action_space.n,
                     summary_writer=summary_writer)
 
 
-def create_rainbow_agent(sess, environment, summary_writer=None):
-  return MyRainbowAgent(sess, num_actions=environment.action_space.n,
+def create_rainbow_agent(environment, summary_writer=None):
+  return MyRainbowAgent(num_actions=environment.action_space.n,
                         summary_writer=summary_writer)
 
 

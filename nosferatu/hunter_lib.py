@@ -95,10 +95,10 @@ class RainbowCapsuleHunter(tf.keras.Model):
     # self.flatten = tf.keras.layers.Flatten()
     self.bolzmann1 = Online.OnlineBolzmannCell(512, online=True)
     self.dropout1 = tf.keras.layers.Dropout(0.2)
-    self.bolzmann3 = Online.OnlineBolzmannCell(10, online=True)
+    self.bolzmann2 = Online.OnlineBolzmannCell(10, online=True)
+    self.dropout2 = tf.keras.layers.Dropout(0.2)
+    self.bolzmann3 = Online.OnlineBolzmannCell(512, online=True)
     self.dropout3 = tf.keras.layers.Dropout(0.2)
-    self.bolzmann4 = Online.OnlineBolzmannCell(512, online=True)
-    self.dropout4 = tf.keras.layers.Dropout(0.2)
     # self.dense1 = tf.keras.layers.Dense(
         # 512, activation=activation_fn,
         # kernel_initializer=self.kernel_initializer, name='fully_connected')
@@ -106,7 +106,7 @@ class RainbowCapsuleHunter(tf.keras.Model):
         num_actions * num_atoms, kernel_initializer=self.kernel_initializer,
         name='fully_connected')
     
-    self.noise = tf.keras.layers.GaussianNoise(0.1)
+    self.noise = tf.keras.layers.GaussianNoise(0.01)
 
   def call(self, state):
     """Creates the output tensor/op given the state tensor as input.
@@ -147,13 +147,9 @@ class RainbowCapsuleHunter(tf.keras.Model):
     x = self.dropout2(x)
     x = self.bolzmann3(x)
     x = self.dropout3(x)
-    x = self.bolzmann4(x)
-    x = self.dropout4(x)
-    x = self.bolzmann5(x)
-    x = self.dropout5(x)
     # x = self.dense1(x)
     x = self.dense2(x)
-    x = self.noise(x, training=True)
+    # x = self.noise(x, training=True)
 
     logits = tf.reshape(x, [-1, self.num_actions, self.num_atoms])
     probabilities = tf.keras.activations.softmax(logits)

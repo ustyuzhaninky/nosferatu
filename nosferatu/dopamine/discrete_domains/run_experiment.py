@@ -32,6 +32,7 @@ from nosferatu.dopamine.discrete_domains import logger
 
 import numpy as np
 import tensorflow as tf
+from absl import logging
 
 import gin.tf
 
@@ -51,12 +52,11 @@ def load_gin_configs(gin_files, gin_bindings):
 
 
 @gin.configurable
-def create_agent(sess, environment, agent_name=None, summary_writer=None,
+def create_agent(environment, agent_name=None, summary_writer=None,
                  debug_mode=False):
   """Creates an agent.
 
   Args:
-    sess: A `tf.Session` object for running associated ops.
     environment: A gym environment (e.g. Atari 2600).
     agent_name: str, name of the agent to create.
     summary_writer: A Tensorflow summary writer to pass to the agent
@@ -75,15 +75,15 @@ def create_agent(sess, environment, agent_name=None, summary_writer=None,
   if not debug_mode:
     summary_writer = None
   if agent_name == 'dqn':
-    return dqn_agent.DQNAgent(sess, num_actions=environment.action_space.n,
+    return dqn_agent.DQNAgent(num_actions=environment.action_space.n,
                               summary_writer=summary_writer)
   elif agent_name == 'rainbow':
     return rainbow_agent.RainbowAgent(
-        sess, num_actions=environment.action_space.n,
+        num_actions=environment.action_space.n,
         summary_writer=summary_writer)
   elif agent_name == 'implicit_quantile':
     return implicit_quantile_agent.ImplicitQuantileAgent(
-        sess, num_actions=environment.action_space.n,
+        num_actions=environment.action_space.n,
         summary_writer=summary_writer)
   else:
     raise ValueError('Unknown agent: {}'.format(agent_name))
@@ -127,8 +127,8 @@ class Runner(object):
   ```python
   import dopamine.discrete_domains.atari_lib
   base_dir = '/tmp/simple_example'
-  def create_agent(sess, environment):
-    return dqn_agent.DQNAgent(sess, num_actions=environment.action_space.n)
+  def create_agent(environment):
+    return dqn_agent.DQNAgent(num_actions=environment.action_space.n)
   runner = Runner(base_dir, create_agent, atari_lib.create_atari_environment)
   runner.run()
   ```
@@ -149,7 +149,7 @@ class Runner(object):
 
     Args:
       base_dir: str, the base directory to host all required sub-directories.
-      create_agent_fn: A function that takes as args a Tensorflow session and an
+      create_agent_fn: A function that takes as args an
         environment, and returns an agent.
       create_environment_fn: A function which receives a problem name and
         creates a Gym environment for that problem (e.g. an Atari 2600 game).
@@ -165,7 +165,6 @@ class Runner(object):
 
     This constructor will take the following actions:
     - Initialize an environment.
-    - Initialize a `tf.Session`.
     - Initialize a logger.
     - Initialize an agent.
     - Reload from the latest checkpoint, if available, and initialize the
@@ -183,16 +182,13 @@ class Runner(object):
     self._summary_writer = tf.summary.FileWriter(self._base_dir)
 
     self._environment = create_environment_fn()
-    config = tf.ConfigProto(allow_soft_placement=True)
+    config = tf.compat.v1.ConfigProto(allow_soft_placement=True)
     # Allocate only subset of the GPU memory as needed which allows for running
     # multiple agents/workers on the same GPU.
     config.gpu_options.allow_growth = True
-    # Set up a session and initialize variables.
-    self._sess = tf.Session('', config=config)
-    self._agent = create_agent_fn(self._sess, self._environment,
+    # Set up and initialize variables.
+    self._agent = create_agent_fn(self._environment,
                                   summary_writer=self._summary_writer)
-    self._summary_writer.add_graph(graph=tf.get_default_graph())
-    self._sess.run(tf.global_variables_initializer())
 
     self._initialize_checkpointer_and_maybe_resume(checkpoint_file_prefix)
 
@@ -239,7 +235,7 @@ class Runner(object):
           assert 'current_iteration' in experiment_data
           self._logger.data = experiment_data['logs']
           self._start_iteration = experiment_data['current_iteration'] + 1
-        tf.logging.info('Reloaded checkpoint and will start from iteration %d',
+        logging.info('Reloaded checkpoint and will start from iteration %d',
                         self._start_iteration)
 
   def _initialize_episode(self):
@@ -339,7 +335,7 @@ class Runner(object):
       step_count += episode_length
       sum_returns += episode_return
       num_episodes += 1
-      # We use sys.stdout.write instead of tf.logging so as to flush frequently
+      # We use sys.stdout.write instead of logging so as to flush frequently
       # without generating a line break.
       sys.stdout.write('Steps executed: {} '.format(step_count) +
                        'Episode length: {} '.format(episode_length) +
@@ -366,9 +362,9 @@ class Runner(object):
     average_return = sum_returns / num_episodes if num_episodes > 0 else 0.0
     statistics.append({'train_average_return': average_return})
     time_delta = time.time() - start_time
-    tf.logging.info('Average undiscounted return per training episode: %.2f',
+    logging.info('Average undiscounted return per training episode: %.2f',
                     average_return)
-    tf.logging.info('Average training steps per second: %.2f',
+    logging.info('Average training steps per second: %.2f',
                     number_steps / time_delta)
     return num_episodes, average_return
 
@@ -388,7 +384,7 @@ class Runner(object):
     _, sum_returns, num_episodes = self._run_one_phase(
         self._evaluation_steps, statistics, 'eval')
     average_return = sum_returns / num_episodes if num_episodes > 0 else 0.0
-    tf.logging.info('Average undiscounted return per evaluation episode: %.2f',
+    logging.info('Average undiscounted return per evaluation episode: %.2f',
                     average_return)
     statistics.append({'eval_average_return': average_return})
     return num_episodes, average_return
@@ -408,7 +404,7 @@ class Runner(object):
       A dict containing summary statistics for this iteration.
     """
     statistics = iteration_statistics.IterationStatistics()
-    tf.logging.info('Starting iteration %d', iteration)
+    logging.info('Starting iteration %d', iteration)
     num_episodes_train, average_reward_train = self._run_train_phase(
         statistics)
     num_episodes_eval, average_reward_eval = self._run_eval_phase(
@@ -471,9 +467,9 @@ class Runner(object):
 
   def run_experiment(self):
     """Runs a full experiment, spread over multiple iterations."""
-    tf.logging.info('Beginning training...')
+    logging.info('Beginning training...')
     if self._num_iterations <= self._start_iteration:
-      tf.logging.warning('num_iterations (%d) < start_iteration(%d)',
+      logging.warning('num_iterations (%d) < start_iteration(%d)',
                          self._num_iterations, self._start_iteration)
       return
 
@@ -498,12 +494,12 @@ class TrainRunner(Runner):
 
     Args:
       base_dir: str, the base directory to host all required sub-directories.
-      create_agent_fn: A function that takes as args a Tensorflow session and an
+      create_agent_fn: A function that takes as args an
         environment, and returns an agent.
       create_environment_fn: A function which receives a problem name and
         creates a Gym environment for that problem (e.g. an Atari 2600 game).
     """
-    tf.logging.info('Creating TrainRunner ...')
+    logging.info('Creating TrainRunner ...')
     super(TrainRunner, self).__init__(base_dir, create_agent_fn,
                                       create_environment_fn)
     self._agent.eval_mode = False

@@ -36,7 +36,6 @@ class ImplicitQuantileAgent(rainbow_agent.RainbowAgent):
   """An extension of Rainbow to perform implicit quantile regression."""
 
   def __init__(self,
-               sess,
                num_actions,
                network=atari_lib.ImplicitQuantileNetwork,
                kappa=1.0,
@@ -53,7 +52,6 @@ class ImplicitQuantileAgent(rainbow_agent.RainbowAgent):
     values are taken from Dabney et al. (2018).
 
     Args:
-      sess: `tf.Session` object for running associated ops.
       num_actions: int, number of actions the agent can take at any state.
       network: tf.Keras.Model, expects three parameters:
         (num_actions, quantile_embedding_dim, network_type). This class is used
@@ -88,7 +86,6 @@ class ImplicitQuantileAgent(rainbow_agent.RainbowAgent):
     self.double_dqn = double_dqn
 
     super(ImplicitQuantileAgent, self).__init__(
-        sess=sess,
         num_actions=num_actions,
         network=network,
         summary_writer=summary_writer,
@@ -299,6 +296,5 @@ class ImplicitQuantileAgent(rainbow_agent.RainbowAgent):
     update_priorities_op = tf.no_op()
     with tf.control_dependencies([update_priorities_op]):
       if self.summary_writer is not None:
-        with tf.variable_scope('Losses'):
-          tf.summary.scalar('QuantileLoss', tf.reduce_mean(loss))
+        tf.summary.scalar('QuantileLoss', tf.reduce_mean(loss))
       return self.optimizer.minimize(tf.reduce_mean(loss)), tf.reduce_mean(loss)
