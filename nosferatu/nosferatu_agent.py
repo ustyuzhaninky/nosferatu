@@ -37,6 +37,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+from absl import logging
+
 from nosferatu.dopamine.agents.dqn import dqn_agent
 from nosferatu.dopamine.agents.rainbow import rainbow_agent
 from nosferatu.dopamine.discrete_domains import atari_lib
@@ -49,6 +52,7 @@ import gin.tf
 @gin.configurable
 class NosferatuAgent(rainbow_agent.RainbowAgent):
   def __init__(self,
+               base_dir,
                num_actions,
                num_capsule,
                dim_capsule,
@@ -70,6 +74,7 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
                epsilon_decay_period=250000,
                replay_scheme='prioritized',
                tf_device='/gpu:0',
+               
                use_staging=True,
                optimizer=tf.keras.optimizers.Adam(
                    learning_rate=0.00025, epsilon=0.0003125),
@@ -121,6 +126,7 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
     self._num_capsule = num_capsule
     self._dim_capsule = dim_capsule
     self._routings = routings
+    self._logs_dir = os.path.join(base_dir, 'checkpoints')
 
     rainbow_agent.RainbowAgent.__init__(
         self,
@@ -191,3 +197,52 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
     #   # Choose the action with highest Q-value at the current state.
     #   self._net_outputs = self.online_convnet(self.state)
     #   return tf.argmax(self._net_outputs.q_values, axis=1)[0]
+  
+  def _build_networks(self):
+    """Builds the Q-value network computations needed for acting and training.
+
+    These are:
+      self.online_convnet: For computing the current state's Q-values.
+      self.target_convnet: For computing the next state's target Q-values.
+      self._net_outputs: The actual Q-values.
+      self._q_argmax: The action maximizing the current state's Q-values.
+      self._replay_net_outputs: The replayed states' Q-values.
+      self._replay_next_target_net_outputs: The replayed next states' target
+        Q-values (see Mnih et al., 2015 for details).
+    """
+
+    # _network_template instantiates the model and returns the network object.
+    # The network object can be used to generate different outputs in the graph.
+    # At each call to the network, the parameters will be reused.
+    callbacks = [
+        tf.keras.callbacks.TensorBoard(log_dir=os.path.join(self._logs_dir, 'logs'),
+                                       histogram_freq=0,
+                                       embeddings_freq=0,
+                                       update_freq='epoch',
+                                       profile_batch=0),
+
+        #When saving a model's weights, tf.keras defaults to the checkpoint format.
+        #Pass save_format='h5' to use HDF5 (or pass a filename that ends in .h5).
+        tf.keras.callbacks.ModelCheckpoint(filepath=self._logs_dir,
+                                           monitor='val_loss',
+                                           save_weights_only=True,
+                                           verbose=1,
+                                           save_best_only=True),
+    ]
+
+    self.online_convnet = self._create_network(name='Online')
+    self.target_convnet = self._create_network(name='Target')
+    # self.online_convnet.compile(optimizer=self.optimizer, loss= tf.keras.losses.Huber,
+                                # metrics=['accuracy'], callbacks=callbacks)
+
+  def save_state(self, iteration):
+    self.online_convnet.save_weights(os.path.join(
+        self._logs_dir, f'online_{iteration}'), save_format='tf')
+    self.target_convnet.save_weights(os.path.join(
+        self._logs_dir, f'target_{iteration}'), save_format='tf')
+
+  def restore_state(self, iteration):
+    self.online_convnet.load_weights(os.path.join(
+        self._logs_dir, f'online_{iteration}'))
+    self.target_convnet.load_weights(os.path.join(
+        self._logs_dir, f'target_{iteration}'))
