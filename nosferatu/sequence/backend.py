@@ -9,11 +9,7 @@ __all__ = [
 
 TF_KERAS = strtobool(os.environ.get('TF_KERAS', '0'))
 
-if TF_KERAS:
-    import tensorflow as tf
-    keras = tf.keras
-else:
-    import keras
+from tensorflow import keras
 
 utils = keras.utils
 activations = keras.activations
