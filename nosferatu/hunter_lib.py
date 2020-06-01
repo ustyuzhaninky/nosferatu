@@ -32,7 +32,7 @@ from tensorflow.keras import backend as K
 import cv2
 from tensorflow.keras import layers as layers
 from nosferatu.capsules import cap_layers
-from nosferatu.sequence import seq_layers
+from nosferatu.sequence import *
 from nosferatu.neocortex import Online
 from nosferatu.dopamine.discrete_domains.atari_lib import *
 
