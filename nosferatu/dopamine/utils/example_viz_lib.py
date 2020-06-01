@@ -30,6 +30,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+from absl import logging
 
 from dopamine.agents.dqn import dqn_agent
 from dopamine.agents.rainbow import rainbow_agent
@@ -80,8 +81,8 @@ class MyDQNAgent(dqn_agent.DQNAgent):
       variables_to_restore = tf.get_variables_to_restore(
           include=include_vars)
     if variables_to_restore:
-      # reloader = tf.train.Saver(var_list=variables_to_restore)
-      # reloader.restore(checkpoint_path)
+      # reloader = tf.compat.v1.train.Saver(var_list=variables_to_restore)
+      # reloader.restore(save_path=checkpoint_path)
       self.network.load_weights(checkpoint_path)
       logging.info('Done restoring from %s', checkpoint_path)
     else:
@@ -120,8 +121,8 @@ class MyRainbowAgent(rainbow_agent.RainbowAgent):
       variables_to_restore = layers.get_variables_to_restore(
           include=include_vars)
     if variables_to_restore:
-      # reloader = tf.train.Saver(var_list=variables_to_restore)
-      # reloader.restore(checkpoint_path)
+      # reloader = tf.compat.v1 .train.Saver(var_list=variables_to_restore)
+      # reloader.restore(save_path=checkpoint_path)
       self.network.load_weights(checkpoint_path)
       logging.info('Done restoring from %s', checkpoint_path)
     else:
