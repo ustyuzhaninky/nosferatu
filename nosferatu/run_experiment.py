@@ -52,7 +52,7 @@ def load_gin_configs(gin_files, gin_bindings):
 
 
 @gin.configurable
-def create_agent(environment, agent_name=None, summary_writer=None,
+def create_agent(environment, base_dir, agent_name=None, summary_writer=None,
                  debug_mode=False):
   """Creates an agent.
 
@@ -79,14 +79,11 @@ def create_agent(environment, agent_name=None, summary_writer=None,
 #                               summary_writer=summary_writer)
   if agent_name == 'nosferatu':
     return nosferatu_agent.NosferatuAgent(
+        base_dir,
         num_actions=environment.action_space.n,
         num_capsule=8,
         dim_capsule=3,
         summary_writer=summary_writer)
-#   elif agent_name == 'implicit_quantile':
-#     return implicit_quantile_agent.ImplicitQuantileAgent(
-#         num_actions=environment.action_space.n,
-#         summary_writer=summary_writer)
   else:
     raise ValueError('Unknown agent: {}'.format(agent_name))
 
@@ -183,13 +180,14 @@ class Runner(object):
     self._create_directories()
     self._summary_writer = tf_summary.create_file_writer(self._base_dir)
     self._summary_writer.as_default()
+    self.experiment_data = {}
 
     self._environment = create_environment_fn()
     config = tf.compat.v1.ConfigProto(allow_soft_placement=True)
     # Allocate only subset of the GPU memory as needed which allows for running
     # multiple agents/workers on the same GPU.
     # config.gpu_options.allow_growth = True
-    self._agent = create_agent_fn(self._environment,
+    self._agent = create_agent_fn(self._environment, self._base_dir,
                                   summary_writer=self._summary_writer)
     # self._summary_writer.add_graph(graph=tf.get_default_graph())
 
@@ -221,25 +219,41 @@ class Runner(object):
       start_iteration: int, the iteration number to start the experiment from.
       experiment_checkpointer: `Checkpointer` object for the experiment.
     """
-    self._checkpointer = checkpointer.Checkpointer(self._checkpoint_dir,
-                                                   checkpoint_file_prefix)
+    self._checkpointer = tf.train.Checkpoint(step=tf.Variable(1),
+                                             )
+    
+    self._checkpoint_manager = tf.train.CheckpointManager(
+        self._checkpointer, self._checkpoint_dir, max_to_keep=5)
+    # self._checkpointer = checkpointer.Checkpointer(self._checkpoint_dir,
+                                                  #  checkpoint_file_prefix)
     self._start_iteration = 0
     # Check if checkpoint exists. Note that the existence of checkpoint 0 means
-    # that we have finished iteration 0 (so we will start from iteration 1).
-    latest_checkpoint_version = checkpointer.get_latest_checkpoint_number(
-        self._checkpoint_dir)
-    if latest_checkpoint_version >= 0:
-      experiment_data = self._checkpointer.load_checkpoint(
-          latest_checkpoint_version)
-      if self._agent.unbundle(
-          self._checkpoint_dir, latest_checkpoint_version, experiment_data):
-        if experiment_data is not None:
-          assert 'logs' in experiment_data
-          assert 'current_iteration' in experiment_data
-          self._logger.data = experiment_data['logs']
-          self._start_iteration = experiment_data['current_iteration'] + 1
-        logging.info('Reloaded checkpoint and will start from iteration %d',
-                        self._start_iteration)
+    # that we have finished iteration 1 (so we will start from iteration 1).
+    if self._checkpoint_manager.latest_checkpoint:
+      self._checkpointer.restore(self._checkpoint_manager.latest_checkpoint)
+      self._agent.restore_state(self._checkpointer.step.numpy())
+      self._start_iteration = self._checkpointer.step + 1
+      logging.info('Reloaded checkpoint and will start from iteration %d',
+                   self._start_iteration)
+
+    ### Old code for deprecation
+    # self._checkpointer = checkpointer.Checkpointer(self._checkpoint_dir,
+    #                                                checkpoint_file_prefix)
+    # self._start_iteration = 0
+    # latest_checkpoint_version = checkpointer.get_latest_checkpoint_number(
+    #     self._checkpoint_dir)
+    # if latest_checkpoint_version >= 0:
+    #   experiment_data = self._checkpointer.load_checkpoint(
+    #       latest_checkpoint_version)
+    #   if self._agent.unbundle(
+    #       self._checkpoint_dir, latest_checkpoint_version, experiment_data):
+    #     if experiment_data is not None:
+    #       assert 'logs' in experiment_data
+    #       assert 'current_iteration' in experiment_data
+    #       self._logger.data = experiment_data['logs']
+    #       self._start_iteration = experiment_data['current_iteration'] + 1
+    #     logging.info('Reloaded checkpoint and will start from iteration %d',
+    #                     self._start_iteration)
 
   def _initialize_episode(self):
     """Initialization for a new episode.
@@ -459,12 +473,19 @@ class Runner(object):
       iteration: int, iteration number for checkpointing.
     """
     
-
-    # experiment_data = self._agent.bundle_and_checkpoint(self._checkpoint_dir,
+    self._checkpointer.step.assign(iteration)
+    self._agent.save_state(iteration)
+    ckpt_save_path = self._checkpoint_manager.save()
+    logging.info(
+        f'Saving checkpoint for epoch {iteration} at {ckpt_save_path}')
+    
+    # self.experiment_data = self._agent.bundle_and_checkpoint(self._checkpoint_dir,
     #                                                     iteration)
     # if experiment_data:
+    
     #   experiment_data['current_iteration'] = iteration
     #   experiment_data['logs'] = self._logger.data
+    # # self._checkpoint_manager.save()
     #   self._checkpointer.save_checkpoint(iteration, experiment_data)
 
   def run_experiment(self):
