@@ -12,4 +12,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-name = 'sequence'
+
+from .sequence import *
+from .loader import *
+from .transformer_xl import *
+from .scale import *
+from .memory import *
+from .rel_bias import *
+from .rel_multi_head import *
+from .pos_embed import *
+from .seq_layers import *
+
+__name__ = 'sequence'
+
+__version__ = '0.12.0'
