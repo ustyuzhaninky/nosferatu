@@ -87,24 +87,41 @@ class BufferCell(Layer):
         #     raise ValueError(
         #             'The number of steps in the buffer cannot be smaller than the batch dimension.'
         #         )
-
-        masked_inputs =  tf.keras.layers.concatenate([inputs, tf.zeros((self.n_steps-input_shape[0],)+input_shape[1:])], axis=0)
-        nullifying_mask = tf.keras.layers.concatenate([tf.zeros(input_shape), tf.ones((self.n_steps-input_shape[0],)+input_shape[1:])], axis=0)
+        if self.n_steps <= input_shape[0]:
+            d_mask = self.n_steps
+            n_mask = input_shape[0] - d_mask
+            saved_inps = tf.convert_to_tensor(inputs[-d_mask:])
+            if len(saved_inps.shape) < 2:
+                saved_inps = tf.reshape(saved_inps, (d_mask)+saved_inps.shape)
+            masked_inputs = saved_inps
+            nullifying_mask = 0
+        else:
+            d_mask = input_shape[0]
+            n_mask = self.n_steps - input_shape[0]
+            saved_inps = inputs
+            if len(saved_inps.shape) < 2:
+                saved_inps = tf.reshape(saved_inps, (d_mask)+saved_inps.shape)
+            masked_inputs = tf.keras.layers.concatenate([saved_inps, tf.zeros(
+                (n_mask,)+saved_inps.shape[1:], dtype=inputs.dtype)], axis=0)
+            nullifying_mask = tf.keras.layers.concatenate([tf.zeros((d_mask,)+saved_inps.shape[1:], dtype=inputs.dtype), tf.ones(
+                (n_mask,)+saved_inps.shape[1:], dtype=inputs.dtype)], axis=0)
         
         if self.buffer is not None:
-          rolled = tf.roll(self.buffer, shift=input_shape[0], axis=0)
+          rolled = tf.roll(self.buffer, shift=d_mask, axis=0)
           updated_buffer = rolled * nullifying_mask + masked_inputs
         else:
           self.buffer = self.add_weight(
               name='buffer',
               shape=(self.n_steps,) + input_shape[1:],
-              initializer='zeros', trainable=False)
+              initializer='zeros', trainable=False, dtype=inputs.dtype)
           updated_buffer = self.buffer * nullifying_mask + masked_inputs
         
-
-        output = tf.reshape(updated_buffer, 
-                            (inputs.shape[0], 
-                            int(self.n_steps / inputs.shape[0]),) + updated_buffer.shape[1:])
+        if inputs.shape[0] < self.n_steps:
+            batch_dim = 1
+        else:
+            batch_dim = int(inputs.shape[0] / self.n_steps)
+        output = tf.reshape(updated_buffer, (batch_dim, self.n_steps,) + updated_buffer.shape[1:])
+        
         if self.buffer is not None:
           self.buffer.assign(updated_buffer)
         else:
