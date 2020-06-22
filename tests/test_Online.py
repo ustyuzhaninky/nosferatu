@@ -15,7 +15,7 @@ from skimage.transform import resize
 from tensorflow.keras import metrics
 import pandas as pd
 from sklearn.metrics import classification_report, accuracy_score, plot_confusion_matrix
-from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
+from tensorflow.keras.wrappers.scikit_learn from tensorflow import kerasClassifier
 import matplotlib.pyplot as plt
 from tensorflow.keras.metrics import categorical_accuracy
 

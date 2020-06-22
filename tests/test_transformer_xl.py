@@ -2,7 +2,7 @@ import os
 import tempfile
 from unittest import TestCase
 import numpy as np
-from nosferatu.sequence.backend import keras
+from nosferatu.sequence.backend from tensorflow import keras
 from nosferatu.sequence import build_transformer_xl, set_custom_objects
 
 
@@ -32,7 +32,7 @@ class TestTransformerXL(TestCase):
         try:
             current_path = os.path.dirname(os.path.abspath(__file__))
             visual_path = os.path.join(current_path, 'test_build.jpg')
-            keras.utils.vis_utils.plot_model(model, visual_path)
+            keras.utils.plot_model(model, visual_path)
         except Exception as e:
             pass
 

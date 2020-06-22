@@ -1,6 +1,6 @@
 from unittest import TestCase
 import numpy as np
-from nosferatu.sequence.backend import keras
+from nosferatu.sequence.backend from tensorflow import keras
 from nosferatu.sequence.backend import backend as K
 from nosferatu.sequence import RelativeBias, RelativePartialMultiHeadSelfAttention
 
