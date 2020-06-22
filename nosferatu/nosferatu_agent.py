@@ -38,7 +38,11 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import random
+import math
+import io
 from absl import logging
+import matplotlib.pyplot as plt
 
 from nosferatu.dopamine.agents.dqn import dqn_agent
 from nosferatu.dopamine.agents.rainbow import rainbow_agent
@@ -48,6 +52,26 @@ from nosferatu.dopamine.replay_memory import prioritized_replay_buffer
 import tensorflow as tf
 
 import gin.tf
+
+def get_view_image(img, reward, action):
+  '''
+  Returns an image with recorder reward and chosen action.
+
+  Args:
+    img (array, shape=[width, height, channels]): an observation of the environment
+    reward (int): current accumulated reward
+    action (int): current chosen action
+  '''
+  
+  plt.figure(figsize=(8, 8))
+  plt.imshow(img, interpolation='nearest',)
+  plt.text(10, 40, f'Reward: {reward}')
+  plt.text(10, 50, f'Action: {action}')
+  buf = io.BytesIO()
+  plt.savefig(buf, format='png')
+  buf.seek(0)
+  plt.close()
+  return tf.expand_dims(tf.image.decode_png(buf.getvalue(), channels=4), 0)
 
 @gin.configurable
 class NosferatuAgent(rainbow_agent.RainbowAgent):
@@ -126,6 +150,7 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
     self._num_capsule = num_capsule
     self._dim_capsule = dim_capsule
     self._routings = routings
+    self.summary_writer = summary_writer
     self._logs_dir = os.path.join(base_dir, 'checkpoints')
 
     rainbow_agent.RainbowAgent.__init__(
@@ -246,3 +271,69 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
         self._logs_dir, f'online_{iteration}'))
     self.target_convnet.load_weights(os.path.join(
         self._logs_dir, f'target_{iteration}'))
+
+  def step(self, reward, observation):
+    """Records the most recent transition and returns the agent's next action.
+
+    We store the observation of the last time step since we want to store it
+    with the reward.
+
+    Args:
+      reward: float, the reward received from the agent's most recent action.
+      observation: numpy array, the most recent observation.
+
+    Returns:
+      int, the selected action.
+    """
+    self._last_observation = self._observation
+    self._record_observation(observation)
+
+    if not self.eval_mode:
+      self._store_transition(self._last_observation,
+                             self.action, reward, False)
+      self._train_step()
+
+    self.action = self._select_action()
+    if not self.summary_writer is None:
+      with self.summary_writer.as_default():
+        tf.summary.scalar('Reward', reward, step=0)
+        tf.summary.image('Observation', get_view_image(
+          self._last_observation, reward, self.action), step=0)
+    return self.action
+
+  def end_episode(self, reward):
+    """Signals the end of the episode to the agent.
+
+    We store the observation of the current time step, which is the last
+    observation of the episode.
+
+    Args:
+      reward: float, the last reward from the environment.
+    """
+    if not self.eval_mode:
+      self._store_transition(self._observation, self.action, reward, True)
+
+  def _select_action(self):
+    """Select an action from the set of available actions.
+
+    Chooses an action randomly with probability self._calculate_epsilon(), and
+    otherwise acts greedily according to the current Q-value estimates.
+
+    Returns:
+       int, the selected action.
+    """
+    if self.eval_mode:
+      epsilon = self.epsilon_eval
+    else:
+      epsilon = self.epsilon_fn(
+          self.epsilon_decay_period,
+          self.training_steps,
+          self.min_replay_history,
+          self.epsilon_train)
+    if random.random() <= epsilon:
+      # Choose a random action with probability epsilon.
+      return random.randint(0, self.num_actions - 1)
+    else:
+      # Choose the action with highest Q-value at the current state.
+      self._net_outputs = self.online_convnet(self.state)
+      return tf.argmax(self._net_outputs.q_values, axis=1)[0]
