@@ -40,7 +40,7 @@ import cv2
 slim = tf.compat.v1.layers
 
 
-NATURE_DQN_OBSERVATION_SHAPE = (84, 84)  # Size of downscaled Atari 2600 frame.
+NATURE_DQN_OBSERVATION_SHAPE = (416, 416) #(84, 84)  # Size of downscaled Atari 2600 frame.
 NATURE_DQN_DTYPE = tf.uint8  # DType of Atari 2600 observations.
 NATURE_DQN_STACK_SIZE = 4  # Number of frames in the state stack.
 
@@ -54,7 +54,7 @@ def create_otc_environment(environment_path=None):
   assert environment_path is not None
   config = {'agent-perspective': 0}
   config = None
-  env = ObstacleTowerEnv(environment_path, 0, retro = True, realtime_mode=False, config=config)
+  env = ObstacleTowerEnv(environment_path, 0, retro = True, realtime_mode=True, config=config)
   env = OTCPreprocessing(env)
   return env
 
