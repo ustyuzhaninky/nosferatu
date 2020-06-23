@@ -208,15 +208,24 @@ class OnlineBolzmannCell(Layer):
         # Negative gradient
         # Gibbs sampling
         sample_hidden_units_gibbs_step = sample_hidden_units
-        for t in range(self.n_passes):
-            compute_visible_units = self.prop_down(
-                sample_hidden_units_gibbs_step)
-            compute_hidden_units_gibbs_step = self.prop_up(
-                compute_visible_units)
-            random_uniform_values = tf.random.uniform(
-                (1, self.units))
-            sample_hidden_units_gibbs_step = tf.cast(
-                random_uniform_values < compute_hidden_units_gibbs_step, dtype=tf.float32)
+        # for t in range(self.n_passes):
+        #     compute_visible_units = self.prop_down(
+        #         sample_hidden_units_gibbs_step)
+        #     compute_hidden_units_gibbs_step = self.prop_up(
+        #         compute_visible_units)
+        #     random_uniform_values = tf.random.uniform(
+        #         (1, self.units))
+        #     sample_hidden_units_gibbs_step = tf.cast(
+        #         random_uniform_values < compute_hidden_units_gibbs_step, dtype=tf.float32)
+
+        compute_visible_units = self.prop_down(
+            sample_hidden_units_gibbs_step)
+        compute_hidden_units_gibbs_step = self.prop_up(
+            compute_visible_units)
+        random_uniform_values = tf.random.uniform(
+            (1, self.units))
+        sample_hidden_units_gibbs_step = tf.cast(
+            random_uniform_values < compute_hidden_units_gibbs_step, dtype=tf.float32)
 
         negative_grad = tf.matmul(tf.transpose(sample_hidden_units_gibbs_step),
                                     compute_visible_units,

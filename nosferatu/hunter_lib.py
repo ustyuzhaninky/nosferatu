@@ -231,20 +231,20 @@ class NsHunter1(tf.keras.Model):
     # unet
     # self.unet = vgg_unet(n_classes=51, input_height=416,
     #                      input_width=416,)
-    # self.unet.trainable = False
-
+    # self.unet.trainable = True
+    # self.reshape1 = tf.keras.layers.Reshape((-1, 416, 416, 51), name='Reshape')
     # self.unet.summary()
 
     # vgg19
-    # self.vgg19 = tf.keras.applications.VGG19(
-    #     input_shape=(416, 416, 3),  # (84, 84, 3),
-    #     include_top=False,
-    #     weights="imagenet",
-    #     input_tensor=None,
-    #     pooling='max',
-    #     classes=1000,
-    # )
-    # self.vgg19.trainable = False
+    self.vgg19 = tf.keras.applications.VGG19(
+        input_shape=(416, 416, 3),  # (84, 84, 3),
+        include_top=False,
+        weights="imagenet",
+        input_tensor=None,
+        pooling='max',
+        classes=1000,
+    )
+    self.vgg19.trainable = False
     # self.vgg19.compile(optimizer='rmsprop', loss='mse')
 
     # basic recognition part
@@ -261,7 +261,7 @@ class NsHunter1(tf.keras.Model):
     # self.conv4 = tf.keras.layers.Conv2D(
     #     128, [3, 3], padding='same', activation='relu',
     #     kernel_initializer=self.kernel_initializer, name='Conv4')
-    self.reshape1 = tf.keras.layers.Reshape((-1, 128), name='Reshape')
+    self.reshape2 = tf.keras.layers.Reshape((-1, 128), name='Reshape')
 
     # Capsule layers
     self.primary_caps = cap_layers.Capsule(10, 16, 3, True)
@@ -270,11 +270,23 @@ class NsHunter1(tf.keras.Model):
         lambda z: K.sqrt(K.sum(K.square(z), 2)))
     # self.reshape1 = tf.keras.layers.Reshape((24, -1), name='Reshape')
 
-    # One sencond buffer storage
+    # Short-term bi-memory
     self.buf = Buffer(24)
-    self.gru1 = tf.keras.layers.GRU(24, use_bias=True,
+
+    self.gru1_forward = tf.keras.layers.GRU(24, use_bias=True,
+                                                 recurrent_dropout=0.2,
+                                                 dropout=0.2, return_sequences=True,
+                                                 go_backwards=False)
+    self.gru1_backward = tf.keras.layers.GRU(24, use_bias=True,
+                                                  recurrent_dropout=0.2,
+                                                  dropout=0.2, return_sequences=True,
+                                                  go_backwards=True)
+    self.short_mem = tf.keras.layers.Bidirectional(
+        self.gru1_forward, backward_layer=self.gru1_backward,)
+    self.gru2 = tf.keras.layers.GRU(24, use_bias=True,
                                     recurrent_dropout=0.2,
-                                    dropout=0.2, return_sequences=False,)
+                                    dropout=0.2, return_sequences=False,
+                                    go_backwards=False)
 
     ### My custom caps
     # self.conv4 = tf.keras.layers.Conv2D(
@@ -285,7 +297,7 @@ class NsHunter1(tf.keras.Model):
     # self.digit_caps =  tf.keras.layers.Lambda(lambda x: K.sqrt(K.sum(K.square(x), 2)), output_shape=(10,))
     self.bolzmann1 = Online.OnlineBolzmannCell(512, online=True)
     self.dropout1 = tf.keras.layers.Dropout(0.2)
-    self.bolzmann2 = Online.OnlineBolzmannCell(10, online=True)
+    self.bolzmann2 = Online.OnlineBolzmannCell(512, online=True)
     self.dropout2 = tf.keras.layers.Dropout(0.2)
     self.bolzmann3 = Online.OnlineBolzmannCell(512, online=True)
     self.dropout3 = tf.keras.layers.Dropout(0.2)
@@ -323,16 +335,17 @@ class NsHunter1(tf.keras.Model):
 
     #segmentation part
     # x = self.unet(x)
+    # x = self.reshape1(x)
 
     # cognition part
-    # x = self.vgg19(x)
+    x = self.vgg19(x)
 
-    x = self.conv1(x)
+    # x = self.conv1(x)
     # x = self.conv2(x)
     # x = self.avgpool(x)
     # x = self.conv3(x)
     # x = self.conv4(x)
-    x = self.reshape1(x)
+    x = self.reshape2(x)
 
     # caps part
     x = self.primary_caps(x)
@@ -340,13 +353,19 @@ class NsHunter1(tf.keras.Model):
 
     # recurrent part
     x = self.buf(x)
-    x = self.gru1(x)
+    x = self.short_mem(x)
+    # x = tf.keras.layers.BatchNormalization()(x)
+    x = self.gru2(x)
+    # x = tf.keras.layers.BatchNormalization()(x)
 
     x = self.bolzmann1(x)
+    # x = tf.keras.layers.BatchNormalization()(x)
     x = self.dropout1(x)
     x = self.bolzmann2(x)
+    # x = tf.keras.layers.BatchNormalization()(x)
     x = self.dropout2(x)
     x = self.bolzmann3(x)
+    # x = tf.keras.layers.BatchNormalization()(x)
     x = self.dropout3(x)
 
     # hat
