@@ -49,29 +49,10 @@ from nosferatu.dopamine.agents.rainbow import rainbow_agent
 from nosferatu.dopamine.discrete_domains import atari_lib
 from nosferatu import hunter_lib
 from nosferatu.dopamine.replay_memory import prioritized_replay_buffer
+from nosferatu import utils
 import tensorflow as tf
 
 import gin.tf
-
-def get_view_image(img, reward, action):
-  '''
-  Returns an image with recorder reward and chosen action.
-
-  Args:
-    img (array, shape=[width, height, channels]): an observation of the environment
-    reward (int): current accumulated reward
-    action (int): current chosen action
-  '''
-  
-  plt.figure(figsize=(8, 8))
-  plt.imshow(img, interpolation='nearest',)
-  plt.text(10, 40, f'Reward: {reward}')
-  plt.text(10, 50, f'Action: {action}')
-  buf = io.BytesIO()
-  plt.savefig(buf, format='png')
-  buf.seek(0)
-  plt.close()
-  return tf.expand_dims(tf.image.decode_png(buf.getvalue(), channels=4), 0)
 
 @gin.configurable
 class NosferatuAgent(rainbow_agent.RainbowAgent):
@@ -297,7 +278,7 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
     if not self.summary_writer is None:
       with self.summary_writer.as_default():
         tf.summary.scalar('Reward', reward, step=0)
-        tf.summary.image('Observation', get_view_image(
+        tf.summary.image('Observation', utils.get_view_image(
           self._last_observation, reward, self.action), step=0)
     return self.action
 
