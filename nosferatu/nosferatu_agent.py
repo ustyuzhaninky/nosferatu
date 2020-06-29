@@ -62,7 +62,7 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
                num_capsule,
                dim_capsule,
                routings=3,
-               observation_shape=(416, 416),  # (84, 84),
+               observation_shape=(84, 84),  # (84, 84),
                observation_dtype=dqn_agent.NATURE_DQN_DTYPE,
                stack_size=3,
                network=hunter_lib.NsHunter1,

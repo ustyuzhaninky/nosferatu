@@ -9,7 +9,7 @@ import numpy as np
 import time
 from collections import deque
 from gym import error, spaces
-from mlagents.envs.environment import UnityEnvironment
+from mlagents_envs.environment import UnityEnvironment
 import tensorflow as tf
 from tensorflow.python.framework.ops import EagerTensor
 
@@ -291,7 +291,7 @@ class ObstacleTowerEnv(gym.Env):
         """
         obs_image = Image.fromarray(observation)
         # obs_image = obs_image.resize((84, 84), Image.NEAREST)
-        obs_image = obs_image.resize((416, 416), Image.NEAREST)
+        obs_image = obs_image.resize((84, 84), Image.NEAREST)
         return np.array(obs_image)
 
     @staticmethod

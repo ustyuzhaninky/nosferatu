@@ -25,6 +25,7 @@ tf.train.AdamOptimizer.learning_rate = 0.0000625
 tf.train.AdamOptimizer.epsilon = 0.00015
 
 create_otc_environment.environment_path = "D:/Jorgen/Projects/python/PhDSub/TowerProject/ObstacleTower/obstacletower.exe"
+create_otc_environment.docker_training = False
 create_agent.agent_name = 'nosferatu'
 Runner.create_environment_fn = @unity_lib.create_otc_environment
 Runner.num_iterations = 200

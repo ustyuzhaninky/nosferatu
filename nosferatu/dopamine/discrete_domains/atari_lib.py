@@ -56,7 +56,7 @@ from tensorflow.keras import layers as layers#layers
 # from tensorflow.keras import slim as layers
 
 
-NATURE_DQN_OBSERVATION_SHAPE = (416, 416)#(84, 84)  # Size of downscaled Atari 2600 frame.
+NATURE_DQN_OBSERVATION_SHAPE = (84, 84)#(84, 84)  # Size of downscaled Atari 2600 frame.
 NATURE_DQN_DTYPE = tf.uint8  # DType of Atari 2600 observations.
 NATURE_DQN_STACK_SIZE = 4  # Number of frames in the state stack.
 
