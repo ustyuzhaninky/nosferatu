@@ -248,9 +248,9 @@ class NsHunter1(tf.keras.Model):
     # self.vgg19.compile(optimizer='rmsprop', loss='mse')
 
     # basic recognition part
-    self.conv1 = tf.keras.layers.Conv2D(
-            64, [3, 3], padding='same', activation='relu',
-            kernel_initializer=self.kernel_initializer, name='Conv1')
+    # self.conv1 = tf.keras.layers.Conv2D(
+    #         64, [3, 3], padding='same', activation='relu',
+    #         kernel_initializer=self.kernel_initializer, name='Conv1')
     # self.conv2 = tf.keras.layers.Conv2D(
     #     64, [3, 3],padding='same', activation='relu',
     #     kernel_initializer=self.kernel_initializer, name='Conv2')
@@ -268,7 +268,6 @@ class NsHunter1(tf.keras.Model):
     # self.secondary_caps = cap_layers.Capsule1D(8, 3, 3, True)
     self.digit_caps = tf.keras.layers.Lambda(
         lambda z: K.sqrt(K.sum(K.square(z), 2)))
-    # self.reshape1 = tf.keras.layers.Reshape((24, -1), name='Reshape')
 
     # Short-term bi-memory
     self.buf = Buffer(24)
@@ -353,7 +352,7 @@ class NsHunter1(tf.keras.Model):
 
     # recurrent part
     x = self.buf(x)
-    x = self.short_mem(x)
+    # x = self.short_mem(x)
     # x = tf.keras.layers.BatchNormalization()(x)
     x = self.gru2(x)
     # x = tf.keras.layers.BatchNormalization()(x)
