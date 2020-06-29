@@ -1,0 +1,18 @@
+absl-py >= 0.2.2
+opencv-python >= 3.4.1.15
+tensorflow-gpu>=2.2.0
+tensorboard>=2.2.1
+gin-config >= 0.1.1
+gym >= 0.10.5
+Pillow >= 5.4.1
+tqdm >= 4.47.0
+mlagents >= 0.17.0
+mlagents-envs>=0.10
+git+https://github.com/Unity-Technologies/obstacle-tower-env.git
+keras-position-wise-feed-forward>=0.6.0
+keras-layer-normalization>=0.14.0
+Keras-Preprocessing>=1.1.2
+keras-self-attention>=0.41.0
+# keras-transformer>=0.33.0
+keras-adaptive-softmax>=0.6.0
+matplotlib>=3.1.3
