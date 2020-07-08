@@ -81,8 +81,6 @@ def create_agent(environment, base_dir, agent_name=None, summary_writer=None,
     return nosferatu_agent.NosferatuAgent(
         base_dir,
         num_actions=environment.action_space.n,
-        num_capsule=8,
-        dim_capsule=3,
         summary_writer=summary_writer)
   else:
     raise ValueError('Unknown agent: {}'.format(agent_name))

@@ -29,6 +29,7 @@ from PIL import Image as pil_image
 from tensorflow.keras.preprocessing.image import save_img
 from tensorflow.keras import layers
 from tensorflow.keras import backend as K
+import tensorflow as tf
 
 
 def normalize(x):

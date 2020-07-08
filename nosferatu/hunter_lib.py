@@ -206,16 +206,13 @@ class RainbowCapsuleHunter(tf.keras.Model):
 class NsHunter1(tf.keras.Model):
   """The custom NsHunter used to compute agent's return distributions."""
 
-  def __init__(self, num_actions, num_atoms, support, num_capsule, dim_capsule, routings=3, share_weights=True, name=None):
+  def __init__(self, num_actions, num_atoms, support, share_weights=True, name=None):
     """Creates the layers used calculating return distributions.
 
     Args:
       num_actions: int, number of actions.
       num_atoms: int, the number of buckets of the value function distribution.
       support: tf.linspace, the support of the Q-value distribution.
-      num_capsule: int, the nnumber of capsules in the capsule layer
-      dim_capsule: int, the dimension of each capsule
-      routings: int, the number of rooting operations
       share_weights: bool, shows whether the weights should be shared between capsules (leave it be)
       name: str, used to crete scope for network parameters.
     """
@@ -236,31 +233,31 @@ class NsHunter1(tf.keras.Model):
     # self.unet.summary()
 
     # vgg19
-    self.vgg19 = tf.keras.applications.VGG19(
-        input_shape=(416, 416, 3),  # (84, 84, 3),
-        include_top=False,
-        weights="imagenet",
-        input_tensor=None,
-        pooling='max',
-        classes=1000,
-    )
-    self.vgg19.trainable = False
+    # self.vgg19 = tf.keras.applications.VGG19(
+    #     input_shape=(416, 416, 3),  # (84, 84, 3),
+    #     include_top=False,
+    #     weights="imagenet",
+    #     input_tensor=None,
+    #     pooling='max',
+    #     classes=1000,
+    # )
+    # self.vgg19.trainable = False
     # self.vgg19.compile(optimizer='rmsprop', loss='mse')
 
     # basic recognition part
-    # self.conv1 = tf.keras.layers.Conv2D(
-    #         64, [3, 3], padding='same', activation='relu',
-    #         kernel_initializer=self.kernel_initializer, name='Conv1')
-    # self.conv2 = tf.keras.layers.Conv2D(
-    #     64, [3, 3],padding='same', activation='relu',
-    #     kernel_initializer=self.kernel_initializer, name='Conv2')
-    # self.avgpool =tf.keras.layers.AveragePooling2D((2, 2), name='avgpool')
-    # self.conv3 = tf.keras.layers.Conv2D(
-    #     128, [3, 3], padding='same', activation='relu',
-    #     kernel_initializer=self.kernel_initializer, name='Conv3')
-    # self.conv4 = tf.keras.layers.Conv2D(
-    #     128, [3, 3], padding='same', activation='relu',
-    #     kernel_initializer=self.kernel_initializer, name='Conv4')
+    self.conv1 = tf.keras.layers.Conv2D(
+            64, [3, 3], padding='same', activation='relu',
+            kernel_initializer=self.kernel_initializer, name='Conv1')
+    self.conv2 = tf.keras.layers.Conv2D(
+        64, [3, 3],padding='same', activation='relu',
+        kernel_initializer=self.kernel_initializer, name='Conv2')
+    self.avgpool =tf.keras.layers.AveragePooling2D((2, 2), name='avgpool')
+    self.conv3 = tf.keras.layers.Conv2D(
+        128, [3, 3], padding='same', activation='relu',
+        kernel_initializer=self.kernel_initializer, name='Conv3')
+    self.conv4 = tf.keras.layers.Conv2D(
+        128, [3, 3], padding='same', activation='relu',
+        kernel_initializer=self.kernel_initializer, name='Conv4')
     self.reshape2 = tf.keras.layers.Reshape((-1, 128), name='Reshape')
 
     # Capsule layers
@@ -272,16 +269,16 @@ class NsHunter1(tf.keras.Model):
     # Short-term bi-memory
     self.buf = Buffer(24)
 
-    self.gru1_forward = tf.keras.layers.GRU(24, use_bias=True,
-                                                 recurrent_dropout=0.2,
-                                                 dropout=0.2, return_sequences=True,
-                                                 go_backwards=False)
-    self.gru1_backward = tf.keras.layers.GRU(24, use_bias=True,
-                                                  recurrent_dropout=0.2,
-                                                  dropout=0.2, return_sequences=True,
-                                                  go_backwards=True)
-    self.short_mem = tf.keras.layers.Bidirectional(
-        self.gru1_forward, backward_layer=self.gru1_backward,)
+    # self.gru1_forward = tf.keras.layers.GRU(24, use_bias=True,
+    #                                              recurrent_dropout=0.2,
+    #                                              dropout=0.2, return_sequences=True,
+    #                                              go_backwards=False)
+    # self.gru1_backward = tf.keras.layers.GRU(24, use_bias=True,
+    #                                               recurrent_dropout=0.2,
+    #                                               dropout=0.2, return_sequences=True,
+    #                                               go_backwards=True)
+    # self.short_mem = tf.keras.layers.Bidirectional(
+    #     self.gru1_forward, backward_layer=self.gru1_backward,)
     self.gru2 = tf.keras.layers.GRU(24, use_bias=True,
                                     recurrent_dropout=0.2,
                                     dropout=0.2, return_sequences=False,
@@ -294,11 +291,11 @@ class NsHunter1(tf.keras.Model):
     # self.reshape1 = tf.keras.layers.Reshape((-1, 128), name='Reshape')
     # self.primary_caps = cap_layers.Capsule(8, 3, 3, True)
     # self.digit_caps =  tf.keras.layers.Lambda(lambda x: K.sqrt(K.sum(K.square(x), 2)), output_shape=(10,))
-    self.bolzmann1 = Online.OnlineBolzmannCell(512, online=True)
+    self.bolzmann1 = Online.OnlineBolzmannCell(100, online=True)
     self.dropout1 = tf.keras.layers.Dropout(0.2)
-    self.bolzmann2 = Online.OnlineBolzmannCell(512, online=True)
+    self.bolzmann2 = Online.OnlineBolzmannCell(100, online=True)
     self.dropout2 = tf.keras.layers.Dropout(0.2)
-    self.bolzmann3 = Online.OnlineBolzmannCell(512, online=True)
+    self.bolzmann3 = Online.OnlineBolzmannCell(100, online=True)
     self.dropout3 = tf.keras.layers.Dropout(0.2)
     # # self.dense1 = tf.keras.layers.Dense(
     #     # 512, activation=activation_fn,
@@ -337,13 +334,13 @@ class NsHunter1(tf.keras.Model):
     # x = self.reshape1(x)
 
     # cognition part
-    x = self.vgg19(x)
+    # x = self.vgg19(x)
 
-    # x = self.conv1(x)
-    # x = self.conv2(x)
-    # x = self.avgpool(x)
-    # x = self.conv3(x)
-    # x = self.conv4(x)
+    x = self.conv1(x)
+    x = self.conv2(x)
+    x = self.avgpool(x)
+    x = self.conv3(x)
+    x = self.conv4(x)
     x = self.reshape2(x)
 
     # caps part
@@ -374,5 +371,7 @@ class NsHunter1(tf.keras.Model):
     logits = tf.reshape(x, [-1, self.num_actions, self.num_atoms])
     probabilities = tf.keras.activations.softmax(logits)
     q_values = tf.reduce_sum(self.support * probabilities, axis=2)
+
+    # p rint(tf.keras.Model(state, q_values).summary())
 
     return RainbowNetworkType(q_values, logits, probabilities)

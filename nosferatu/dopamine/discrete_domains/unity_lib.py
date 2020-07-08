@@ -54,8 +54,7 @@ def create_otc_environment(environment_path=None, docker_training=False):
   assert environment_path is not None
   config = {'agent-perspective': 0}
   config = None
-  env = ObstacleTowerEnv(environment_path, 0, retro=True,
-                         realtime_mode=False, config=config)#, docker_training=docker_training)
+  env = ObstacleTowerEnv(retro=True, realtime_mode=False)
   env = OTCPreprocessing(env)
   return env
 

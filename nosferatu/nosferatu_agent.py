@@ -59,9 +59,6 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
   def __init__(self,
                base_dir,
                num_actions,
-               num_capsule,
-               dim_capsule,
-               routings=3,
                observation_shape=(84, 84),  # (84, 84),
                observation_dtype=dqn_agent.NATURE_DQN_DTYPE,
                stack_size=3,
@@ -69,7 +66,7 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
                num_atoms=51,
                vmax=10.,
                gamma=0.99,
-               update_horizon=5,
+               update_horizon=1,
                min_replay_history=20000,
                update_period=4,
                target_update_period=8000,
@@ -128,10 +125,8 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
     """  
     
     self.optimizer = optimizer
-    self._num_capsule = num_capsule
-    self._dim_capsule = dim_capsule
-    self._routings = routings
     self.summary_writer = summary_writer
+    self._base_dir = base_dir
     self._logs_dir = os.path.join(base_dir, 'checkpoints')
 
     rainbow_agent.RainbowAgent.__init__(
@@ -169,8 +164,19 @@ class NosferatuAgent(rainbow_agent.RainbowAgent):
       network: tf.keras.Model, the network instantiated by the Keras model.
     """
     network = self.network(self.num_actions, self._num_atoms, self._support,
-                           self._num_capsule, self._dim_capsule, routings=self._routings,
                            name=name)
+    # network.build((1, 84, 84, 4))
+    # network.summary()
+    tf.keras.utils.plot_model(
+        network,
+        to_file=os.path.join(self._base_dir, f"{name}.png"),
+        show_shapes=True,
+        show_layer_names=True,
+        rankdir="TB",
+        expand_nested=True,
+        dpi=300,
+    )
+    # self.summary_writer.add_text()
     return network
   
   def _select_action(self):
