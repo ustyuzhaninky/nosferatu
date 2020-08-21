@@ -20,6 +20,7 @@ from __future__ import print_function
 import collections
 import math
 import matplotlib.pyplot as plt
+from absl import logging
 
 import gin
 import gym
@@ -225,25 +226,6 @@ class NsHunter1(tf.keras.Model):
         scale=1.0 / np.sqrt(3.0), mode='fan_in', distribution='uniform')
     # Defining layers.
 
-    # unet
-    # self.unet = vgg_unet(n_classes=51, input_height=416,
-    #                      input_width=416,)
-    # self.unet.trainable = True
-    # self.reshape1 = tf.keras.layers.Reshape((-1, 416, 416, 51), name='Reshape')
-    # self.unet.summary()
-
-    # vgg19
-    # self.vgg19 = tf.keras.applications.VGG19(
-    #     input_shape=(416, 416, 3),  # (84, 84, 3),
-    #     include_top=False,
-    #     weights="imagenet",
-    #     input_tensor=None,
-    #     pooling='max',
-    #     classes=1000,
-    # )
-    # self.vgg19.trainable = False
-    # self.vgg19.compile(optimizer='rmsprop', loss='mse')
-
     # basic recognition part
     self.conv1 = tf.keras.layers.Conv2D(
             64, [3, 3], padding='same', activation='relu',
@@ -262,49 +244,57 @@ class NsHunter1(tf.keras.Model):
 
     # Capsule layers
     self.primary_caps = cap_layers.Capsule(10, 16, 3, True)
-    # self.secondary_caps = cap_layers.Capsule1D(8, 3, 3, True)
     self.digit_caps = tf.keras.layers.Lambda(
         lambda z: K.sqrt(K.sum(K.square(z), 2)))
 
     # Short-term bi-memory
     self.buf = Buffer(24)
 
-    # self.gru1_forward = tf.keras.layers.GRU(24, use_bias=True,
-    #                                              recurrent_dropout=0.2,
-    #                                              dropout=0.2, return_sequences=True,
-    #                                              go_backwards=False)
-    # self.gru1_backward = tf.keras.layers.GRU(24, use_bias=True,
-    #                                               recurrent_dropout=0.2,
-    #                                               dropout=0.2, return_sequences=True,
-    #                                               go_backwards=True)
-    # self.short_mem = tf.keras.layers.Bidirectional(
-    #     self.gru1_forward, backward_layer=self.gru1_backward,)
-    self.gru2 = tf.keras.layers.GRU(24, use_bias=True,
+    self.gru2 = tf.keras.layers.GRU(100, use_bias=True,
                                     recurrent_dropout=0.2,
                                     dropout=0.2, return_sequences=False,
                                     go_backwards=False)
 
+    # Attention
+
+    query_input = tf.keras.Input(shape=(None, 100), dtype='float32')
+    value_input = tf.keras.Input(shape=(None, 100), dtype='float32')
+
+    encoder = tf.keras.layers.Conv1D(
+        filters=100,
+        kernel_size=4,
+        padding='same')
+    ## Query encoding of shape [batch_size, Tq, filters].
+    query_seq_encoding = encoder(query_input)
+    ## Value encoding of shape [batch_size, Tv, filters].
+    value_seq_encoding = encoder(value_input)
+    ## Query-value attention of shape [batch_size, Tq, filters].
+    query_value_attention_seq = tf.keras.layers.Attention()(
+        [query_seq_encoding, value_seq_encoding])
+
+    # Reduce over the sequence axis to produce encodings of shape
+    # [batch_size, filters].
+    query_encoding = tf.keras.layers.GlobalAveragePooling1D()(
+        query_seq_encoding)
+    query_value_attention = tf.keras.layers.GlobalAveragePooling1D()(
+        query_value_attention_seq)
+
+    # Concatenate query and document encodings to produce a DNN input layer.
+    input_layer = tf.keras.layers.Concatenate()(
+    [query_encoding, query_value_attention])
+
+    self.attention = tf.keras.Model(
+        inputs=[query_input, value_input], outputs=input_layer)
+    
+    self.attention.summary()
+    
     ### My custom caps
-    # self.conv4 = tf.keras.layers.Conv2D(
-    #     128, [3, 3], strides=1, padding='same', activation=activation_fn,
-    #     kernel_initializer=self.kernel_initializer, name='Conv')
-    # self.reshape1 = tf.keras.layers.Reshape((-1, 128), name='Reshape')
-    # self.primary_caps = cap_layers.Capsule(8, 3, 3, True)
-    # self.digit_caps =  tf.keras.layers.Lambda(lambda x: K.sqrt(K.sum(K.square(x), 2)), output_shape=(10,))
     self.bolzmann1 = Online.OnlineBolzmannCell(100, online=True)
     self.dropout1 = tf.keras.layers.Dropout(0.2)
     self.bolzmann2 = Online.OnlineBolzmannCell(100, online=True)
     self.dropout2 = tf.keras.layers.Dropout(0.2)
     self.bolzmann3 = Online.OnlineBolzmannCell(100, online=True)
     self.dropout3 = tf.keras.layers.Dropout(0.2)
-    # # self.dense1 = tf.keras.layers.Dense(
-    #     # 512, activation=activation_fn,
-    #     # kernel_initializer=self.kernel_initializer, name='fully_connected')
-    # self.dense2 = tf.keras.layers.Dense(
-    #     num_actions * num_atoms, kernel_initializer=self.kernel_initializer,
-    #     name='fully_connected')
-
-    # self.noise = tf.keras.layers.GaussianNoise(0.01)
 
     self.dense1 = tf.keras.layers.Dense(
         512, activation=activation_fn,
@@ -329,19 +319,13 @@ class NsHunter1(tf.keras.Model):
     x = tf.cast(state, tf.float32)
     x = x / 255.
 
-    #segmentation part
-    # x = self.unet(x)
-    # x = self.reshape1(x)
-
-    # cognition part
-    # x = self.vgg19(x)
-
     x = self.conv1(x)
     x = self.conv2(x)
     x = self.avgpool(x)
     x = self.conv3(x)
     x = self.conv4(x)
     x = self.reshape2(x)
+    filters = x
 
     # caps part
     x = self.primary_caps(x)
@@ -353,6 +337,11 @@ class NsHunter1(tf.keras.Model):
     # x = tf.keras.layers.BatchNormalization()(x)
     x = self.gru2(x)
     # x = tf.keras.layers.BatchNormalization()(x)
+
+    # values = tf.keras.layers.Flatten()(filters)
+    # values = Buffer(100)(values)
+
+    # x = self.attention(x, values)
 
     x = self.bolzmann1(x)
     # x = tf.keras.layers.BatchNormalization()(x)
@@ -372,6 +361,6 @@ class NsHunter1(tf.keras.Model):
     probabilities = tf.keras.activations.softmax(logits)
     q_values = tf.reduce_sum(self.support * probabilities, axis=2)
 
-    # p rint(tf.keras.Model(state, q_values).summary())
+    tf.keras.Model(inputs=state, outputs=q_values).summary(print_fn=logging.info)
 
     return RainbowNetworkType(q_values, logits, probabilities)
