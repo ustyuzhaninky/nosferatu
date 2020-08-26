@@ -58,8 +58,146 @@ from nosferatu.sequence.pos_embed import PositionalEmbedding
 from nosferatu.sequence.rel_bias import RelativeBias
 from nosferatu.sequence.rel_multi_head import RelativePartialMultiHeadSelfAttention
 
-__all__ = ['OSAR', 'TransformerShift']
+__all__ = ['OSAR', 'transformerShift']
 
+
+def transformerShift(inputs, memory, conv_units, short_units,
+                     compression_rate:int=2, 
+                     method:str='conv',
+                     use_bias:bool=True,
+                     kernel=None,
+                     bias=None,
+                     activation=None,
+                     ):
+    """Compressive Transformer left-shift operation with fixed short and convolution memories
+       
+       # Arguments
+            inputs: A +3D Tensor with shape: `(timesteps, ..., features)`.
+            memory: A +3D tensor with shape: `(conv_units+short_units, ..., features)`.
+            conv_units: int > 0, Number of convolution memory units in the layer.
+            short_units: int > 0, Number of short-term memory units in the layer.
+            compression_rate: int >= 1 (default - 2). Compression rate for the selected compression method.
+            method: str [`conv`, `mean`, `max`], Defines a memory compression function (default - conv).
+                Available compression functions:
+                - `conv`: 1D convolution over memory sequence.
+                - `mean`: 1D Mean keras.layers.AveragePooling1D.
+                - `max`: 1D Max Pooling via keras.MaxPooling1D.
+
+            Only for method=`conv`:
+                use_bias: Boolean (default - True), whether the layer uses a bias vector.
+                kernel: A 3D Tensor with shape: `(compression_rate, features, features)`.
+                bias: A Tensor of shape `(features,)`
+                        
+            activation: (default - None) Activation functon applied to the output of the compression function ( see keras.activations).
+
+        # Inputs Shape
+            +3D tensor with shape: `(batch_size, timesteps, ..., features)`,
+            +3D tensor with shape: `(conv_units+short_units, ..., features)`.
+        # Output Shape
+            +3D tensor with shape: `(batch_size, conv_units+short_units, ..., features)`.
+        # References
+            - [Compressive-Transformer](https://arxiv.org/abs/1911.05507)
+    
+    """
+
+    if method not in ['conv', 'mean', 'max']:
+        raise ValueError(
+            f'Compression method `{method}` is not supported.')
+    if len(inputs.shape) < 3:
+        raise ValueError(
+            'The dimension of the input vector'
+            ' should be at least 3D: `(batch_size, time_steps, ..., features)`')
+    if len(memory.shape) < 2:
+        raise ValueError(
+            'The dimension of the memory vector'
+            ' should be at least 2D: `(conv_units+short_units, ..., features)`')
+
+    if len(inputs.shape) < 3:
+        raise ValueError('The dimensions of the first tensor of the inputs to `transformerShift` '
+                         f'should be at least 3D: `(batch_size, timesteps, ..., features)`. Found `{inputs.shape}`.')
+    if len(memory.shape) < 2:
+        raise ValueError('The dimensions of the second tensor of the memory to `transformerShift` '
+                         f'should be at least 2D: `(conv_units+short_units, ..., features)`. Found `{memory.shape}`.')
+    if tensor_shape.dimension_value(inputs.shape[-1]) is None:
+        raise ValueError('The last dimension of the first tensor of the inputs to `transformerShift` '
+                         'should be defined. Found `None`.')
+    if tensor_shape.dimension_value(memory.shape[-1]) is None:
+        raise ValueError('The last dimension of the second tensor of the inputs (memory) to `transformerShift` '
+                         'should be defined. Found `None`.')
+    if tensor_shape.dimension_value(inputs.shape[-1]) is not \
+            tensor_shape.dimension_value(memory.shape[-1]):
+        raise ValueError('The last dimension of both input tensors to `transformerShift` '
+                         f'should match. Found `{tensor_shape.dimension_value(inputs.shape[-1])}` and '
+                         f'`{tensor_shape.dimension_value(memory.shape[-1])}`.')
+    
+    if compression_rate < 1:
+        raise ValueError('Compression rate cannot be less than 1.')
+    if method in ['max', 'mean']:
+        compression_rate = np.int(np.floor(compression_rate))
+
+    activation = activations.get(activation)
+
+    
+    timesteps = inputs.shape[1]
+
+    memories = []
+    batch_memory = tf.reshape(memory, (1,)+memory.shape)
+
+    for i, batch in enumerate(inputs):
+        # Forgetting the oldest
+        conv_mem = batch_memory[:, :conv_units]
+        short_mem = batch_memory[:, conv_units:]
+        old_memory = short_mem[:, :timesteps, ...]
+
+        # Compressing the oldest memories
+        if method is 'conv':
+            if kernel.shape[1:-1] != batch.shape[1:]:
+                raise ValueError(
+                    'The dimension of the kernel should be 3D: `(compression_rate, features, features)` '
+                    'if shape of the input is 3D: `(batch_size, time_steps, features)`. '
+                    f'Found `{kernel.shape[1:-1]}`!=`{batch.shape[1:]}`')
+            compression = nn.conv1d(old_memory,
+                                    filters=kernel,
+                                    stride=compression_rate,
+                                    padding='SAME',
+                                    name='Compression')
+            if use_bias:
+                if bias.shape[-1] != compression.shape[-1]:
+                    raise ValueError(
+                        'The dimension of the bias'
+                        ' should be equal to the number of features. '
+                        f'Found `{bias.shape[-1]}`!=`{kernel.shape[-1]}`')
+                compression = nn.bias_add(
+                    compression, bias)
+        elif method is 'mean':
+            compression = nn.avg_pool1d(old_memory, compression_rate,
+                                        strides=compression_rate, padding='SAME', name='Compression')
+        elif method is 'max':
+            compression = nn.max_pool1d(old_memory, compression_rate,
+                                        strides=compression_rate, padding='SAME', name='Compression')
+        else:
+            compression = nn.avg_pool1d(old_memory, compression_rate,
+                                        strides=compression_rate, padding='SAME', name='Compression')
+        if compression.shape[-1] > conv_mem.shape[-1]:
+            compression = nn.avg_pool1d(compression, compression_rate,
+                                        strides=compression_rate, padding='SAME')
+        if activation is not None:
+            compression = activation(compression)
+
+        # Update Short-Term Memory
+        # short_mem[:-timesteps] = short_mem[timesteps:]
+        # short_mem[-timesteps:] = batch
+        short_mem = K.concatenate([short_mem[:, timesteps:], tf.reshape(batch, (1,)+batch.shape)], axis=1)
+
+        # Update Compressed Memory
+        # conv_mem[:-timesteps] = conv_mem[timesteps:]
+        # conv_mem[-timesteps:] = compression
+        conv_mem = K.concatenate([conv_mem[:, 1:, ...], compression], axis=1)
+
+        batch_memory = K.concatenate([conv_mem, short_mem], axis=1)
+        memories.append(batch_memory)
+
+    return K.concatenate(memories, axis=0)
 
 class TransformerShift(Layer):
     """Compressive Transformer left-shift layer with fixed short and convolution memories
@@ -72,7 +210,7 @@ class TransformerShift(Layer):
                  short_units,
                  conv_units,
                  method='conv',
-                 compression_rate=2,
+                 compression_rate=1,
                  filters=32,
                  use_bias=True,
                  activation=None,
@@ -236,16 +374,21 @@ class TransformerShift(Layer):
                     compression, self.bias)
         elif self.method is 'mean':
             compression = nn.avg_pool1d(old_mem, self.compression_rate,
-                                        strides=self.compression_rate, padding='same', name='Compression')
+                                        strides=self.compression_rate, padding='SAME', name='Compression')
         elif self.method is 'max':
             compression = nn.max_pool1d(old_mem, self.compression_rate,
-                                        strides=self.compression_rate, padding='same', name='Compression')
+                                        strides=self.compression_rate, padding='SAME', name='Compression')
         else:
             compression = nn.avg_pool1d(old_mem, self.compression_rate,
-                                        strides=self.compression_rate, padding='same', name='Compression')
+                                        strides=self.compression_rate, padding='SAME', name='Compression')
+        if compression.shape[-1] > 1:
+            compression = nn.avg_pool1d(compression, 1,
+                                        strides=1, padding='SAME')
         if self.activation is not None:
             compression = self.activation(compression)
-        new_convs = tf.reshape(compression, (d_mask,)+short_mem.shape[1:])
+
+        new_convs = tf.reshape(
+            compression, (d_mask,)+short_mem.shape[1:])
 
         # Update Short-Term Memory
         short_mem = K.concatenate(
@@ -253,6 +396,7 @@ class TransformerShift(Layer):
         # Update Compressed Memory
         conv_mem = K.concatenate(
             [conv_mem, new_convs], axis=0)[d_mask:, ...]
+        # conv_mem = tf.nn.convolution(conv_mem, compression)
 
         return K.concatenate([conv_mem, short_mem], axis=0)
 
