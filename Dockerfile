@@ -39,8 +39,8 @@ COPY requirements.txt /nosferatu/
 RUN otc-env/bin/pip install --no-cache-dir -r /nosferatu/requirements.txt
 
 # Installing Obstacle Tower
-RUN wget https://storage.googleapis.com/obstacle-tower-build/v4.0/obstacletower_v4.0_linux.zip
-RUN unzip obstacletower_v4.0_linux.zip
+# RUN wget https://storage.googleapis.com/obstacle-tower-build/v4.1/obstacletower_v4.1_linux.zip
+# RUN unzip obstacletower_v4.0_linux.zip
 RUN /otc-env/bin/activate
 # RUN pip install nosferatu/.
 RUN pip install git+https://github.com/ustyuzhaninky/nosferatu.git
