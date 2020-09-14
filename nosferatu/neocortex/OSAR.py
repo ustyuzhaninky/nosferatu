@@ -732,6 +732,7 @@ class OSAR(Layer):
         steps = tf.tile(tf.constant(list(range(self.units)), dtype=float), tf.constant([1, batch_dim]))
         
         # (batch_dim, timesteps), (batch_dim, timesteps) -> (batch_dim, timesteps)
+        old_reward = self.internal_reward
         self.internal_reward.assign(self.internal_reward + self.w_boost * reward_input * math_ops.exp(steps) - \
             self.w_step * math_ops.exp(steps) - \
             self.w_amount * math_ops.exp(reward_input))
@@ -774,7 +775,7 @@ class OSAR(Layer):
         # Repeater
         # (batch_dim, timesteps n_actions), ((batch_dim, self.units) -  (batch_dim, self.units)) ->
         # w(1,), (batch_dim, self.units) -> (batch_dim, timesteps n_actions)
-        reward_ratio_action = self.W_R * K.einsum('ijk,ij->ijk', action_by_object,
+        reward_ratio_action = self.W_R * tf.einsum('ijk,ij->ijk', action_by_object,
                                        K.softmax(K.abs(self.internal_reward - self.expected_reward)))
         
         #  (batch_dim, timesteps n_actions), (batch_dim, timesteps n_actions) -> (batch_dim, timesteps n_actions)
@@ -808,6 +809,10 @@ class OSAR(Layer):
             object_keys, action_keys = self._mean_ABdict_mix_op(
                 object_keys[-1, ...],
                 action_keys[-1, ...], new_obj, new_act, reward_forecast[-1, ...] - self.internal_reward)
+        
+        object_keys, action_keys = self._mean_ABdict_mix_op(
+            object_keys[-2, ...],
+            action_keys[-2, ...], new_obj, new_act, old_reward - self.internal_reward)
             
         self.expected_reward.assign(reward_forecast[-1, ...])
         self.S_state.assign(tf.cumsum(self.S_state, axis=0) + tf.reduce_sum(new_state, axis=0))
@@ -822,10 +827,7 @@ class OSAR(Layer):
         #     self.expected_reward, new_obj, new_act)  # t case
 
         return new_strategy
-
-    # def _update_AB_dict(self, memory_matrix_A, memory_matrix_B, vector_A, vector_B, new_relevance):
-    #     '''Updates relevance metric for AB dictionary'''
-
+    
     def _min_ABdict_replace_op(self, memory_matrix_A, memory_matrix_B, vector_A, vector_B, new_relevance):
         '''Replaces most irrelevant member of AB dictionary'''
 
@@ -887,6 +889,23 @@ class OSAR(Layer):
         config = {
             'units': self.units,
             'conv_units': self.conv_units,
+            'n_actions': self.n_actions,
+            'feature_units': self.feature_units,
+            'num_head': self.num_head,
+            'dropout': self.dropout,
+            'use_bias': self.use_bias,
+            'memory_size': self.memory_size,
+            'compression_rate': self.compression_rate,
+            'state_constraint': constraints.serialize(self.state_constraint),
+            'state_initializer': initializers.serialize(self.state_initializer),
+
+            'gate_initializer': initializers.serialize(self.gate_initializer),
+            'gate_regularizer': regularizers.serialize(self.gate_regularizer),
+            'gate_constraint': constraints.serialize(self.gate_constraint),
+
+            'bias_initializer': initializers.serialize(self.bias_initializer),
+            'bias_regularizer': regularizers.serialize(self.bias_regularizer),
+            'bias_constraint': constraints.serialize(self.bias_constraint),
         }
         base_config = super(OSAR, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
